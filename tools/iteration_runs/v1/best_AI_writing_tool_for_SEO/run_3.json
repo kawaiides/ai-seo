@@ -1,0 +1,6 @@
+{
+  "target_query": "best AI writing tool for SEO",
+  "raw_response": "{\n  \"target_query\": \"best AI writing tool for SEO\",\n  \"sub_queries\": [\n    {\"type\": \"comparative\", \"query\": \"Jasper vs Copy.ai for SEO content writing\"},\n    {\"type\": \"comparative\", \"query\": \"Frase vs MarketMuse for SEO content briefs\"},\n    {\"type\": \"feature_specific\", \"query\": \"AI writer with WordPress and Semrush integrations\"},\n    {\"type\": \"feature_specific\", \"query\": \"SEO content generator with SERP analysis and scoring\"},\n    {\"type\": \"use_case\", \"query\": \"AI writing tool for affiliate blog SEO workflows\"},\n    {\"type\": \"use_case\", \"query\": \"best AI writer for ecommerce product descriptions SEO\"},\n    {\"type\": \"trust_signals\", \"query\": \"AI writing tools SEO reviews on G2 in 2026\"},\n    {\"type\": \"trust_signals\", \"query\": \"Capterra ratings for SEO AI writers 2025\"},\n    {\"type\": \"how_to\", \"query\": \"how to choose an AI writer for SEO\"},\n    {\"type\": \"how_to\", \"query\": \"how to create SEO briefs with AI tools\"},\n    {\"type\": \"definitional\", \"query\": \"what is an AI writing tool for SEO\"},\n    {\"type\": \"definitional\", \"query\": \"what features define SEO-focused AI writing software\"}\n  ]\n}",
+  "parsed_ok": true,
+  "model": "gpt-5"
+}
