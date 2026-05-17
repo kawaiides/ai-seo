@@ -82,6 +82,77 @@ def chunk_content(
     return chunks
 
 
+def chunk_passages(
+    text: str,
+    *,
+    max_sentences: int = PASSAGE_MAX_SENTENCES,
+    max_passages: int = DEFAULT_MAX_PASSAGES,
+) -> list[dict[str, Any]]:
+    """Group sentences into heading-rooted passages.
+
+    For HTML inputs, a new passage starts at every `<h1>`/`<h2>`/`<h3>`.
+    For plain text or HTML without headings, every `max_sentences`-block
+    becomes a passage. Each passage is at most `max_sentences` sentences
+    (~30–80 words) so embedding granularity stays coherent.
+
+    Returns a list of dicts so callers can attach heading context to the
+    similarity score (used by the dashboard "found in section X" tooltip).
+    """
+    if not text or not text.strip():
+        raise ContentParseError("existing_content is empty")
+
+    nlp = get_nlp()
+
+    has_html = "<" in text and ">" in text
+    sections: list[tuple[str | None, str]] = []
+    if has_html:
+        soup = BeautifulSoup(text, "html.parser")
+        current_heading: str | None = None
+        buf: list[str] = []
+        for el in soup.find_all(["h1", "h2", "h3", "p", "li"]):
+            if el.name in ("h1", "h2", "h3"):
+                if buf:
+                    sections.append((current_heading, " ".join(buf)))
+                    buf = []
+                current_heading = el.get_text(" ", strip=True)
+            else:
+                t = el.get_text(" ", strip=True)
+                if t:
+                    buf.append(t)
+        if buf:
+            sections.append((current_heading, " ".join(buf)))
+
+    if not sections:
+        sections = [(None, text)]
+
+    passages: list[dict[str, Any]] = []
+    for heading, block in sections:
+        doc = nlp(block)
+        sentences: list[str] = []
+        for sent in doc.sents:
+            s = sent.text.strip()
+            if not s:
+                continue
+            if len(s.split()) < DEFAULT_MIN_WORDS:
+                continue
+            sentences.append(s)
+        for i in range(0, len(sentences), max_sentences):
+            window = sentences[i : i + max_sentences]
+            passages.append({
+                "heading": heading,
+                "text": " ".join(window),
+                "sentence_count": len(window),
+            })
+            if len(passages) >= max_passages:
+                return passages
+    if not passages:
+        raise ContentParseError(
+            f"existing_content has no sentences with at least "
+            f"{DEFAULT_MIN_WORDS} words"
+        )
+    return passages
+
+
 def score_subqueries(
     sub_queries: list[LLMSubQuery],
     content: str,
@@ -115,6 +186,52 @@ def score_subqueries(
     for s in max_sims:
         rounded = round(float(s), 2)
         out.append((rounded >= THRESHOLD, rounded))
+    return out
+
+
+def score_subqueries_v2(
+    sub_queries: list[LLMSubQuery],
+    content: str,
+    *,
+    query_vecs: Any | None = None,
+) -> list[dict[str, Any]]:
+    """Heading-aware passage-level scoring.
+
+    For each sub-query returns a dict with:
+      - `covered` (bool): True if max-passage similarity ≥ PASSAGE_THRESHOLD.
+      - `similarity_score` (float): rounded max similarity over passages.
+      - `matched_heading` (str | None): heading of the best-matching passage.
+      - `matched_passage_index` (int): position in passages list.
+
+    Threshold is lower than v1 (0.58 vs 0.72) because passages have richer
+    context — a coherent multi-sentence section can answer an intent with
+    lower per-token similarity than a single tight sentence.
+    """
+    passages = chunk_passages(content)
+    embedder = get_embedder()
+    passage_vecs = embedder.encode(
+        [p["text"] for p in passages],
+        normalize_embeddings=True,
+        convert_to_numpy=True,
+    )
+    if query_vecs is None:
+        query_vecs = embedder.encode(
+            [sq.query for sq in sub_queries],
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        )
+    sims = query_vecs @ passage_vecs.T
+    best_idx = sims.argmax(axis=1)
+    out: list[dict[str, Any]] = []
+    for q_i in range(len(sub_queries)):
+        idx = int(best_idx[q_i])
+        score = round(float(sims[q_i, idx]), 2)
+        out.append({
+            "covered": score >= PASSAGE_THRESHOLD,
+            "similarity_score": score,
+            "matched_heading": passages[idx]["heading"],
+            "matched_passage_index": idx,
+        })
     return out
 
 

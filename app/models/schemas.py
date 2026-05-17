@@ -521,6 +521,40 @@ class SiteDashboardResponse(BaseModel):
     missing_clusters: list[SiteDashboardMissingCluster]
 
 
+# -- Phase C.2 — Competitor benchmarking --
+
+
+class CompetitorRowResponse(BaseModel):
+    root_url: str
+    site_id: _UUID | None
+    pages_total: int
+    pages_audited: int
+    mean_score: float | None
+    median_score: float | None
+    band_counts: dict[str, int]
+    top_missing_types: list[tuple[str, int]]
+    last_audited_at: str | None
+    status: str
+
+
+class CompetitorBenchmarkResponse(BaseModel):
+    site_id: _UUID
+    root_url: str
+    primary: CompetitorRowResponse
+    competitors: list[CompetitorRowResponse]
+    delta_mean_score: dict[str, float | None]
+    intent_gap: dict[str, list[str]]
+
+
+class CompetitorIngestRequest(BaseModel):
+    """Optional pre-supplied page URLs per competitor. Keys are competitor
+    root URLs; values are the page URLs to seed `SitePage` rows for that
+    competitor. Pages aren't audited synchronously — the next site-audit
+    cron picks them up."""
+
+    page_urls_per_competitor: dict[str, list[str]] | None = None
+
+
 # -- Phase C.2 — GEO citation tracking --
 
 
@@ -550,6 +584,9 @@ class GEOProbeResultRecord(BaseModel):
     probed_at: str
     from_cache: bool = False
     cached_age_seconds: int | None = None
+    locale: str | None = None
+    egress_country: str | None = None
+    egress_region: str | None = None
 
 
 class GEOWeeklyRate(BaseModel):

@@ -67,9 +67,34 @@ PLAN_CATALOG = {
 }
 
 
+_DEMO_OK_ENVS = {"dev", "test", "local"}
+
+
+def _is_demo_env() -> bool:
+    """Demo mode is only allowed in explicitly-marked dev/test environments.
+
+    Previously demo mode kicked in any time the Stripe + Razorpay secrets
+    were both unset, which silently let any signed-up user grant themselves
+    a free Pro subscription in production deploys that hadn't wired billing
+    yet. Now an operator must opt in by setting `AEGIS_ENV=dev|test|local`.
+    """
+    return os.environ.get("AEGIS_ENV", "prod").lower() in _DEMO_OK_ENVS
+
+
 def _demo_mode() -> bool:
-    """When neither processor secret is set, run the mocked end-to-end flow."""
+    """Run the mocked end-to-end flow when no processor is wired AND we're
+    in a dev/test environment. Production hits a 503 instead so a
+    misconfigured deploy fails closed."""
+    if not _is_demo_env():
+        return False
     return not (
+        os.environ.get("STRIPE_SECRET_KEY")
+        or os.environ.get("RAZORPAY_KEY_SECRET")
+    )
+
+
+def _billing_configured() -> bool:
+    return bool(
         os.environ.get("STRIPE_SECRET_KEY")
         or os.environ.get("RAZORPAY_KEY_SECRET")
     )
@@ -109,9 +134,22 @@ async def create_checkout(
 
     plan_def = PLAN_CATALOG[plan]
 
+    # Fail closed: if no payment processor is wired AND we're running in a
+    # production environment, refuse the checkout outright. The previous
+    # behaviour silently inserted an `active` Subscription, which let any
+    # signed-up user grant themselves Pro for free.
+    if not _billing_configured() and not _is_demo_env():
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "billing_not_configured",
+                "message": "Billing is not available. Please contact support.",
+            },
+        )
+
     # In real prod we'd build a Stripe Checkout Session or Razorpay Order here.
     # Demo mode short-circuits to a mock Subscription so the UI flow works
-    # without external secrets.
+    # without external secrets, but only when AEGIS_ENV ∈ {dev,test,local}.
     if _demo_mode():
         external_id = f"mock_{plan}_{secrets.token_hex(8)}"
         period_days = 365 if cycle == "annual" else 30

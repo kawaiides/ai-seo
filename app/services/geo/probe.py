@@ -24,6 +24,7 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.services.fanout_engine import extract_json
+from app.services.geo.locale_routing import egress_hint
 from app.services.llm_client import LLMClient, LLMUnavailableError, get_llm_client
 
 MAX_RETRIES = 2
@@ -102,6 +103,9 @@ class ProbeResult:
     cited_urls: tuple[str, ...]
     raw_response: str
     probed_at: datetime
+    locale: str | None = None
+    egress_country: str | None = None
+    egress_region: str | None = None
 
 
 class GEOProbe(Protocol):
@@ -154,6 +158,7 @@ class OpenAIChatProbe:
                 raise
             urls = _safe_extract_urls(raw, max_urls=self._max_urls)
             if urls:
+                hint = egress_hint(locale)
                 return ProbeResult(
                     provider=self.provider,
                     model_name=self.model_name,
@@ -161,6 +166,9 @@ class OpenAIChatProbe:
                     cited_urls=tuple(urls),
                     raw_response=raw,
                     probed_at=datetime.now(tz=timezone.utc),
+                    locale=(locale.strip().lower() if locale else None),
+                    egress_country=hint.country if hint else None,
+                    egress_region=hint.region_header if hint else None,
                 )
             last_detail = (
                 f"no URLs extracted on attempt {attempt}; raw={raw[:200]!r}"

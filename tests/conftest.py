@@ -25,6 +25,11 @@ load_dotenv(override=False)
 # tests and trip 429s in unrelated assertions.
 os.environ.setdefault("AEGIS_DISABLE_RATE_LIMIT", "1")
 
+# Mark this process as a test environment so the session-secret loader
+# (app/services/auth.py::_secret) uses the ephemeral dev key instead of
+# raising. Production must set AEGIS_SECRET_KEY explicitly.
+os.environ.setdefault("AEGIS_ENV", "test")
+
 
 @pytest.fixture(scope="session")
 def nlp():

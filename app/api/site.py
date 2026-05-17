@@ -13,8 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_session
-from app.db.models import Site, SitePage, SitePageAudit
+from app.db.models import OrgRole, Site, SitePage, SitePageAudit, User
+from app.services.auth import get_current_user
+from app.services.orgs import enforce_site_role
 from app.models.schemas import (
+    CompetitorBenchmarkResponse,
+    CompetitorIngestRequest,
+    CompetitorRowResponse,
     SiteAuditPageResult,
     SiteAuditRequest,
     SiteAuditResponse,
@@ -26,6 +31,10 @@ from app.models.schemas import (
     SiteIngestResponse,
 )
 from app.services.site.audit import audit_site_pages
+from app.services.site.competitors import (
+    ingest_and_summarize,
+    summarize_existing,
+)
 from app.services.site.dashboard import (
     AuditRow,
     PageRow,
@@ -44,12 +53,28 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 @router.post("/ingest", response_model=SiteIngestResponse)
 async def ingest(
-    req: SiteIngestRequest, session: AsyncSession = Depends(get_session)
+    req: SiteIngestRequest,
+    session: AsyncSession = Depends(get_session),
+    user: User | None = Depends(get_current_user),
 ) -> SiteIngestResponse:
+    if user is None:
+        raise HTTPException(status_code=401, detail={"error": "auth_required"})
+    target_org_id = req.org_id
+    if target_org_id is not None:
+        # Caller must prove editor+ membership on the org they want this
+        # Site attached to. Previously this trusted whatever org_id came
+        # in on the request body — a cross-tenant write primitive.
+        await enforce_site_role(
+            session,
+            site_org_id=target_org_id,
+            user=user,
+            min_role=OrgRole.editor,
+        )
     result = await ingest_site(
         session,
         root_url=req.root_url,
-        org_id=req.org_id,
+        user_id=user.id if target_org_id is None else None,
+        org_id=target_org_id,
         sitemap_url=req.sitemap_url,
         page_urls=req.page_urls,
         competitor_root_urls=req.competitor_root_urls,
@@ -70,10 +95,18 @@ async def audit(
     site_id: UUID,
     req: SiteAuditRequest,
     session: AsyncSession = Depends(get_session),
+    user: User | None = Depends(get_current_user),
 ) -> SiteAuditResponse:
     site = await session.get(Site, site_id)
     if site is None:
         raise HTTPException(status_code=404, detail={"error": "site_not_found"})
+    await enforce_site_role(
+        session,
+        site_org_id=site.org_id,
+        site_user_id=site.user_id,
+        user=user,
+        min_role=OrgRole.editor,
+    )
     outcome = await audit_site_pages(
         session, site_id, limit=req.limit, concurrency=req.concurrency
     )
@@ -86,11 +119,20 @@ async def audit(
 
 @router.get("/{site_id}/dashboard", response_model=SiteDashboardResponse)
 async def dashboard(
-    site_id: UUID, session: AsyncSession = Depends(get_session)
+    site_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    user: User | None = Depends(get_current_user),
 ) -> SiteDashboardResponse:
     site = await session.get(Site, site_id)
     if site is None:
         raise HTTPException(status_code=404, detail={"error": "site_not_found"})
+    await enforce_site_role(
+        session,
+        site_org_id=site.org_id,
+        site_user_id=site.user_id,
+        user=user,
+        min_role=OrgRole.viewer,
+    )
 
     page_rows = await _fetch_page_rows(session, site_id)
     audit_rows = await _fetch_recent_audits(session, site_id, days=7)
@@ -133,11 +175,87 @@ async def dashboard(
     )
 
 
+def _row_to_response(row) -> CompetitorRowResponse:
+    return CompetitorRowResponse(
+        root_url=row.root_url,
+        site_id=row.site_id,
+        pages_total=row.pages_total,
+        pages_audited=row.pages_audited,
+        mean_score=row.mean_score,
+        median_score=row.median_score,
+        band_counts=row.band_counts,
+        top_missing_types=row.top_missing_types,
+        last_audited_at=(
+            row.last_audited_at.isoformat() if row.last_audited_at else None
+        ),
+        status=row.status,
+    )
+
+
+def _benchmark_to_response(b) -> CompetitorBenchmarkResponse:
+    return CompetitorBenchmarkResponse(
+        site_id=b.site_id,
+        root_url=b.root_url,
+        primary=_row_to_response(b.primary),
+        competitors=[_row_to_response(c) for c in b.competitors],
+        delta_mean_score=b.delta_mean_score,
+        intent_gap=b.intent_gap,
+    )
+
+
+@router.get("/{site_id}/competitors", response_model=CompetitorBenchmarkResponse)
+async def competitors_summary(
+    site_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    user: User | None = Depends(get_current_user),
+) -> CompetitorBenchmarkResponse:
+    site = await session.get(Site, site_id)
+    if site is None:
+        raise HTTPException(status_code=404, detail={"error": "site_not_found"})
+    await enforce_site_role(
+        session,
+        site_org_id=site.org_id,
+        site_user_id=site.user_id,
+        user=user,
+        min_role=OrgRole.viewer,
+    )
+    benchmark = await summarize_existing(session, site_id)
+    return _benchmark_to_response(benchmark)
+
+
+@router.post("/{site_id}/competitors/ingest", response_model=CompetitorBenchmarkResponse)
+async def competitors_ingest(
+    site_id: UUID,
+    req: CompetitorIngestRequest,
+    session: AsyncSession = Depends(get_session),
+    user: User | None = Depends(get_current_user),
+) -> CompetitorBenchmarkResponse:
+    site = await session.get(Site, site_id)
+    if site is None:
+        raise HTTPException(status_code=404, detail={"error": "site_not_found"})
+    await enforce_site_role(
+        session,
+        site_org_id=site.org_id,
+        site_user_id=site.user_id,
+        user=user,
+        min_role=OrgRole.editor,
+    )
+    benchmark = await ingest_and_summarize(
+        session,
+        site_id,
+        page_urls_per_competitor=req.page_urls_per_competitor,
+    )
+    return _benchmark_to_response(benchmark)
+
+
 @router.get("/dashboard/{site_id}", response_class=HTMLResponse, include_in_schema=False)
 async def dashboard_html(
-    site_id: UUID, request: Request, session: AsyncSession = Depends(get_session)
+    site_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    user: User | None = Depends(get_current_user),
 ) -> HTMLResponse:
-    data = await dashboard(site_id, session)
+    data = await dashboard(site_id, session, user)
     return templates.TemplateResponse(
         request, "dashboard/site.html", {"data": data.model_dump()}
     )

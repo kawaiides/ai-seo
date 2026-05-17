@@ -1,14 +1,21 @@
-"""Internal-linking suggestion endpoint (Phase B.3)."""
+"""Internal-linking suggestion endpoint (Phase B.3).
+
+Authenticated callers only. The handler fetches a caller-supplied
+sitemap and runs MiniLM embeddings — both unauthenticated this becomes a
+free pre-auth SSRF + compute primitive.
+"""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.db.models import User
 from app.models.schemas import (
     LinkingSuggestRequest,
     LinkingSuggestResponse,
     PageRecordModel,
 )
+from app.services.auth import get_current_user
 from app.services.linking.page_index import (
     PageRecord,
     build_page_index_from_records,
@@ -24,7 +31,12 @@ router = APIRouter()
     "/suggest",
     response_model=LinkingSuggestResponse,
 )
-async def suggest(req: LinkingSuggestRequest) -> LinkingSuggestResponse:
+async def suggest(
+    req: LinkingSuggestRequest,
+    user: User | None = Depends(get_current_user),
+) -> LinkingSuggestResponse:
+    if user is None:
+        raise HTTPException(status_code=401, detail={"error": "auth_required"})
     if req.pages is not None:
         records = [
             PageRecord(url=p.url, title=p.title, excerpt=p.excerpt)

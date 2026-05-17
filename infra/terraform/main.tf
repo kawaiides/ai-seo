@@ -51,6 +51,11 @@ resource "random_password" "session_signing_key" {
   special = false
 }
 
+resource "random_password" "aegis_secret_key" {
+  length  = 48
+  special = false
+}
+
 resource "random_password" "admin_token" {
   length  = 32
   special = false

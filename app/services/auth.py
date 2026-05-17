@@ -16,7 +16,7 @@ import uuid
 from typing import Optional
 
 from fastapi import Cookie, Depends, Request
-from itsdangerous import BadSignature, URLSafeSerializer
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,14 +27,55 @@ COOKIE_NAME = "aegis_session"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 
 
+class SessionSecretMissing(RuntimeError):
+    """Raised when no signing key is configured in a non-dev environment."""
+
+
+def _is_dev_env() -> bool:
+    return os.environ.get("AEGIS_ENV", "prod").lower() in {"dev", "test", "local"}
+
+
 def _secret() -> str:
-    """Session-signing secret. Dev fallback is fixed-but-warned; prod must
-    set AEGIS_SECRET_KEY or sessions break across restarts."""
-    return os.environ.get("AEGIS_SECRET_KEY", "dev-insecure-secret-change-me")
+    """Session-signing secret.
+
+    Production deploys MUST set `AEGIS_SECRET_KEY` (or the legacy alias
+    `SESSION_SIGNING_KEY`). The previous hardcoded dev fallback has been
+    removed — silently signing prod cookies with a public string was a
+    full authentication bypass.
+
+    Dev/test (`AEGIS_ENV=dev|test|local`) still gets a stable per-process
+    auto-generated secret so the test suite doesn't need to provision one.
+    """
+    key = os.environ.get("AEGIS_SECRET_KEY") or os.environ.get("SESSION_SIGNING_KEY")
+    if key:
+        return key
+    if _is_dev_env():
+        return _ephemeral_dev_secret()
+    raise SessionSecretMissing(
+        "AEGIS_SECRET_KEY (or SESSION_SIGNING_KEY) is not set. "
+        "Generate one with `python -c 'import secrets; print(secrets.token_urlsafe(48))'` "
+        "and inject it via Secrets Manager / .env."
+    )
 
 
-def _serializer() -> URLSafeSerializer:
-    return URLSafeSerializer(_secret(), salt="aegis-session")
+_DEV_SECRET_CACHE: str | None = None
+
+
+def _ephemeral_dev_secret() -> str:
+    """Per-process random secret used only when AEGIS_ENV ∈ {dev,test,local}.
+
+    Stable across calls within the process so cookies survive within a
+    test run, but rotated on every process start so leaked dev cookies
+    never carry over.
+    """
+    global _DEV_SECRET_CACHE
+    if _DEV_SECRET_CACHE is None:
+        _DEV_SECRET_CACHE = secrets.token_urlsafe(48)
+    return _DEV_SECRET_CACHE
+
+
+def _serializer() -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(_secret(), salt="aegis-session-v2")
 
 
 def sign_session(session_id: str) -> str:
@@ -43,10 +84,10 @@ def sign_session(session_id: str) -> str:
 
 def unsign_session(cookie_value: str) -> str | None:
     try:
-        data = _serializer().loads(cookie_value)
-        return data.get("sid") if isinstance(data, dict) else None
-    except BadSignature:
+        data = _serializer().loads(cookie_value, max_age=COOKIE_MAX_AGE)
+    except (BadSignature, SignatureExpired):
         return None
+    return data.get("sid") if isinstance(data, dict) else None
 
 
 def new_session_id() -> str:

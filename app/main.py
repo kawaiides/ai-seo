@@ -43,15 +43,42 @@ from app.services.llm_client import LLMUnavailableError  # noqa: E402
 
 app = FastAPI(title="AEGIS — AI Engineer Assignment")
 
-# Permissive CORS so the UI works whether served from FastAPI itself, a
-# VSCode live-preview port, or a future agency-embedded widget on a third
-# party domain. Tighten before production by replacing "*" with an allow-list.
+# CORS allow-list. `ALLOWED_ORIGINS` is a comma-separated env var driven
+# by Terraform — defaults to "*" only in dev/test. Production gets the
+# apex + www origins or whatever the operator configured.
+_cors_env = os.environ.get("ALLOWED_ORIGINS", "").strip()
+if _cors_env:
+    _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+else:
+    _cors_origins = ["*"]
+_cors_allow_credentials = _cors_origins != ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
+    allow_credentials=_cors_allow_credentials,
 )
+
+
+# HSTS: instruct browsers never to talk to us over plaintext HTTP again
+# once they've seen this header. Only emitted when the public origin is
+# HTTPS — local dev (http://localhost) keeps the header off so it doesn't
+# poison browsers used for both prod and local testing.
+_HSTS_ENABLED = os.environ.get("APP_BASE_URL", "").lower().startswith("https://") or (
+    os.environ.get("AEGIS_FORCE_HSTS", "").lower() in {"1", "true", "yes", "on"}
+)
+_HSTS_HEADER = "max-age=31536000; includeSubDomains"
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    if _HSTS_ENABLED:
+        response.headers.setdefault("Strict-Transport-Security", _HSTS_HEADER)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))

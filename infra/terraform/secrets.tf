@@ -9,6 +9,8 @@ locals {
     OPENAI_MODEL          = var.openai_model
     REPORT_SIGNING_KEY    = random_password.report_signing_key.result
     SESSION_SIGNING_KEY   = random_password.session_signing_key.result
+    AEGIS_SECRET_KEY      = random_password.aegis_secret_key.result
+    AEGIS_ENV             = var.environment
     ADMIN_TOKEN           = random_password.admin_token.result
     APP_BASE_URL          = local.base_url
     REPORT_BASE_URL       = local.base_url

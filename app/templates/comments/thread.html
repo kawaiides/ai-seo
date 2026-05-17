@@ -1,0 +1,168 @@
+{% extends "_base.html" %}
+{% block title %}Comments · Audit #{{ audit_id }} — AEGIS{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<section class="max-w-3xl mx-auto px-6 pt-12 pb-24" data-audit-id="{{ audit_id }}">
+  <header class="mb-6 fadeup">
+    <h1 class="text-3xl font-bold tracking-tight">
+      Comments <span class="gradient-text">on Audit #{{ audit_id }}</span>
+    </h1>
+    <p class="text-slate-400 text-sm mt-1">
+      Discuss findings inline with your team. Editors can resolve threads;
+      owners can delete.
+    </p>
+  </header>
+
+  <div id="aegis-comments-list" class="space-y-3 mb-6">
+    {% if not comments %}
+      <p class="text-slate-500 text-sm italic">No comments yet.</p>
+    {% endif %}
+    {% for c in comments %}
+      <article
+        data-comment-id="{{ c.id }}"
+        class="gradient-border rounded-2xl p-4 fadeup
+               {% if c.resolved %}opacity-60{% endif %}"
+      >
+        <header class="flex items-center justify-between text-xs text-slate-500 mb-2">
+          <div class="flex items-center gap-2">
+            <span class="font-mono">{{ c.author_user_id or 'anon' }}</span>
+            {% if c.check_id %}
+              <span class="px-2 py-0.5 rounded-md bg-white/5 text-slate-300">
+                check: {{ c.check_id }}
+              </span>
+            {% endif %}
+            {% if c.resolved %}
+              <span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300">
+                resolved
+              </span>
+            {% endif %}
+          </div>
+          <time class="font-mono">{{ c.created_at }}</time>
+        </header>
+        <p class="text-slate-200 whitespace-pre-wrap">{{ c.body }}</p>
+        <footer class="flex items-center gap-3 mt-3 text-xs">
+          {% if can_resolve %}
+            <button
+              type="button"
+              class="btn-ghost px-2 py-1 rounded-md"
+              data-action="resolve"
+              data-resolved="{{ 'false' if c.resolved else 'true' }}"
+            >
+              {{ 'Reopen' if c.resolved else 'Resolve' }}
+            </button>
+          {% endif %}
+          {% if can_delete %}
+            <button
+              type="button"
+              class="px-2 py-1 rounded-md text-rose-300 hover:bg-rose-500/10"
+              data-action="delete"
+            >
+              Delete
+            </button>
+          {% endif %}
+        </footer>
+      </article>
+    {% endfor %}
+  </div>
+
+  {% if can_edit %}
+    <form id="aegis-comment-form" class="gradient-border rounded-2xl p-4 fadeup">
+      <label class="block text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-2">
+        Add a comment
+      </label>
+      <textarea
+        name="body"
+        required minlength="1" maxlength="4000"
+        rows="3"
+        class="w-full rounded-lg px-3 py-2 bg-white/5 text-slate-100"
+        placeholder="What needs fixing?"
+      ></textarea>
+      <div class="flex items-center gap-2 mt-3">
+        <input
+          type="text"
+          name="check_id"
+          maxlength="64"
+          placeholder="optional check_id (e.g. direct_answer)"
+          class="flex-1 rounded-lg px-3 py-2 bg-white/5 text-slate-100 text-sm font-mono"
+        />
+        <button
+          type="submit"
+          class="btn-primary px-4 py-2 rounded-lg text-sm font-medium"
+        >Post</button>
+      </div>
+      <p id="aegis-comment-error" class="text-rose-300 text-xs mt-2 hidden"></p>
+    </form>
+  {% else %}
+    <p class="text-slate-500 text-sm italic">
+      You have viewer access — read-only. Ask an org editor to comment.
+    </p>
+  {% endif %}
+</section>
+
+<script>
+  (function () {
+    const section = document.querySelector('[data-audit-id]');
+    if (!section) return;
+    const auditId = section.getAttribute('data-audit-id');
+    const list = document.getElementById('aegis-comments-list');
+    const form = document.getElementById('aegis-comment-form');
+    const errEl = document.getElementById('aegis-comment-error');
+
+    async function callJson(method, url, body) {
+      const opts = {
+        method,
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+      };
+      if (body !== undefined) opts.body = JSON.stringify(body);
+      const r = await fetch(url, opts);
+      if (r.status === 204) return null;
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((data && data.detail && data.detail.error) || r.statusText);
+      return data;
+    }
+
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errEl.classList.add('hidden');
+        const fd = new FormData(form);
+        const body = (fd.get('body') || '').toString().trim();
+        const check_id = (fd.get('check_id') || '').toString().trim() || null;
+        if (!body) return;
+        try {
+          await callJson('POST', `/api/audits/${auditId}/comments`, { body, check_id });
+          window.location.reload();
+        } catch (e) {
+          errEl.textContent = e.message || 'Post failed';
+          errEl.classList.remove('hidden');
+        }
+      });
+    }
+
+    if (list) {
+      list.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const article = btn.closest('[data-comment-id]');
+        if (!article) return;
+        const commentId = article.getAttribute('data-comment-id');
+        const action = btn.getAttribute('data-action');
+        try {
+          if (action === 'resolve') {
+            const resolved = btn.getAttribute('data-resolved') === 'true';
+            await callJson('POST', `/api/comments/${commentId}/resolve`, { resolved });
+          } else if (action === 'delete') {
+            if (!confirm('Delete this comment?')) return;
+            await callJson('DELETE', `/api/comments/${commentId}`);
+          }
+          window.location.reload();
+        } catch (err) {
+          alert(err.message || 'Action failed');
+        }
+      });
+    }
+  })();
+</script>
+{% endblock %}

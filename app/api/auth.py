@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Optional
@@ -38,6 +39,21 @@ def _validate_email(email: str) -> str:
     return email
 
 
+def _cookie_secure() -> bool:
+    """Set the Secure flag whenever the public origin uses HTTPS.
+
+    Explicit override via `AEGIS_COOKIE_SECURE=0|1` wins. Otherwise we
+    derive it from `APP_BASE_URL` — the production Terraform sets this to
+    `https://...`, so prod gets Secure cookies by default. Dev (`http://
+    localhost:...`) keeps the flag off so login still works in the browser.
+    """
+    override = os.environ.get("AEGIS_COOKIE_SECURE")
+    if override is not None:
+        return override.lower() in {"1", "true", "yes", "on"}
+    base = os.environ.get("APP_BASE_URL", "")
+    return base.lower().startswith("https://")
+
+
 def _redirect_with_session(target: str, session_token: str) -> RedirectResponse:
     resp = RedirectResponse(url=target, status_code=303)
     resp.set_cookie(
@@ -46,7 +62,7 @@ def _redirect_with_session(target: str, session_token: str) -> RedirectResponse:
         max_age=COOKIE_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=False,  # flip in prod behind HTTPS
+        secure=_cookie_secure(),
         path="/",
     )
     return resp

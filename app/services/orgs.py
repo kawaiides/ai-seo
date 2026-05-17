@@ -212,6 +212,48 @@ def require_role(
     return _dep
 
 
+async def enforce_site_role(
+    session: AsyncSession,
+    *,
+    site_org_id: UUID | None,
+    user: User | None,
+    min_role: OrgRole,
+    site_user_id: UUID | None = None,
+) -> None:
+    """Enforce `min_role` for a route keyed by `site_id` rather than `org_id`.
+
+    Callers MUST pass either `site_org_id` or `site_user_id` (whichever
+    the Site row exposes) so the gate can verify ownership. The previous
+    implementation returned early with "OK" when `site_org_id` was None,
+    which left every legacy user-owned Site fully open to any caller.
+
+    Resolution order:
+      1. Anonymous (`user is None`) → 401.
+      2. `site_org_id` set → must be member with at least `min_role`.
+      3. `site_user_id` set → must equal the calling user (legacy
+         individual-owned path; role enum doesn't apply).
+      4. Neither set → 403 (the row is owner-less, no caller can
+         legitimately access it).
+    """
+    if user is None:
+        raise HTTPException(status_code=401, detail={"error": "auth_required"})
+    if site_org_id is not None:
+        member = await require_membership(session, org_id=site_org_id, user=user)
+        if not has_min_role(member, min_role):
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error": "insufficient_role",
+                    "required": min_role.value,
+                    "held": member.role.value,
+                },
+            )
+        return
+    if site_user_id is not None and site_user_id == user.id:
+        return
+    raise HTTPException(status_code=403, detail={"error": "not_authorised"})
+
+
 # -------------------- Slug helpers --------------------
 
 
