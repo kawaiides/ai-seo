@@ -787,6 +787,7 @@
                     <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
                 </div>
                 <!-- Mock screenshot: terminal -->
+                {% raw %}
                 <div class="rounded-lg overflow-hidden border border-white/5 bg-black/60 font-mono text-[10px] leading-snug">
                     <div class="px-3 py-1.5 border-b border-white/5 bg-white/[.02] flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-rose-500/60"></span>
@@ -804,6 +805,7 @@
                         <div class="text-rose-300 text-[9px]">Exit 1 — below threshold</div>
                     </div>
                 </div>
+                {% endraw %}
                 <p class="text-xs text-slate-400 mt-3 leading-relaxed">Scoped API keys (`audit:write`, `geo:read`, etc.), HMAC-signed outbound webhooks on `audit.completed` / `score.dropped`, plus a single-binary <code class="text-cyan-300 bg-cyan-500/10 px-1 rounded">cli/aegis_ci.py</code> that fails your CI build when any URL drops below your AEO threshold.</p>
             </article>
 
