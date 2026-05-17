@@ -637,7 +637,16 @@ class OrgMemberRecord(BaseModel):
 
 
 class OrgInviteRequest(BaseModel):
-    user_id: _UUID
+    """Invite a teammate to an org.
+
+    Accepts either `email` (preferred, used by the Customer Console UI —
+    a placeholder User row is upserted if no account exists yet) or the
+    legacy `user_id` form (kept for the existing API + tests). Exactly
+    one of the two must be set.
+    """
+
+    user_id: _UUID | None = None
+    email: str | None = Field(default=None, max_length=320)
     role: OrgRoleLiteral
 
 

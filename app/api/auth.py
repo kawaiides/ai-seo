@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_session
-from app.db.models import Subscription, SubscriptionStatus, User
+from app.db.models import Org, OrgMember, OrgRole, Subscription, SubscriptionStatus, User
 from app.services.auth import (
     COOKIE_MAX_AGE,
     COOKIE_NAME,
@@ -120,6 +120,32 @@ async def account_page(
         (s for s in subs if s.status == SubscriptionStatus.active),
         None,
     )
+
+    # Preload the user's orgs + their role in each so the Team tab can
+    # render without a round-trip on tab-switch. The Customer Console
+    # picks the owner-role org as "primary" (the one whose API keys +
+    # members the user can manage); if none, falls back to the most
+    # recent membership.
+    org_rows = (
+        await db.execute(
+            select(Org, OrgMember)
+            .join(OrgMember, OrgMember.org_id == Org.id)
+            .where(OrgMember.user_id == current_user.id)
+            .order_by(Org.created_at.desc())
+        )
+    ).all()
+    user_orgs = [(o, m) for (o, m) in org_rows]
+    primary_org = None
+    primary_role = None
+    for org, member in user_orgs:
+        if member.role == OrgRole.owner:
+            primary_org = org
+            primary_role = member.role
+            break
+    if primary_org is None and user_orgs:
+        primary_org, member = user_orgs[0]
+        primary_role = member.role
+
     return _templates.TemplateResponse(
         request,
         "auth/account.html",
@@ -127,6 +153,9 @@ async def account_page(
             "current_user": current_user,
             "subscriptions": subs,
             "active_sub": active_sub,
+            "user_orgs": user_orgs,
+            "primary_org": primary_org,
+            "primary_role": primary_role.value if primary_role else None,
         },
     )
 

@@ -1,0 +1,49 @@
+{# Empty state for the Keys tab — shown when the user is not an org owner
+   (or has no org yet). Owner role is required to mint/revoke API keys. #}
+<div class="gradient-border rounded-2xl p-10 text-center">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl glass mb-4 text-2xl">⌬</div>
+    <h2 class="text-lg font-bold text-white mb-1">API keys live inside an organization</h2>
+    <p class="text-sm text-slate-400 max-w-md mx-auto mb-5">
+        {% if primary_org %}
+            You're a <span class="text-slate-300">{{ primary_role }}</span> on
+            <span class="text-slate-300">{{ primary_org.name }}</span>; only the
+            org owner can mint API keys. Ask them to invite you as owner, or
+            create your own org for personal keys.
+        {% else %}
+            Create an organization first — API keys are scoped to an org so
+            multiple teammates can share + rotate them without leaking your
+            session cookie.
+        {% endif %}
+    </p>
+    <div class="flex items-center justify-center gap-3">
+        {% if not primary_org %}
+            <button id="empty-create-org" type="button" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold">
+                Create my org
+            </button>
+        {% endif %}
+        <a href="/docs#api" class="btn-ghost px-5 py-2.5 rounded-lg text-sm font-semibold no-underline">
+            API docs →
+        </a>
+    </div>
+</div>
+<script>
+(function () {
+    const btn = document.getElementById("empty-create-org");
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+        const name = prompt("Organization name (e.g. 'My Company')");
+        if (!name) return;
+        const r = await fetch("/api/orgs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: name }),
+        });
+        if (!r.ok) {
+            const e = await r.json().catch(() => ({}));
+            alert("Create failed: " + (e.detail?.message || e.detail || `HTTP ${r.status}`));
+            return;
+        }
+        location.reload();
+    });
+})();
+</script>

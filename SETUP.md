@@ -237,6 +237,33 @@ picking the least-recently-used slug (state lives in the
 demand with `python -m app.autopilot prospect --seed "best X"` from the
 CLI; explicit `--seed` always beats `--auto-seed`.
 
+### Customer Console (`/account`)
+
+`/account` is a 5-tab self-serve dashboard for logged-in users:
+Overview, API keys, Team, Billing, Danger. Tab state lives in the URL
+hash so links from emails / docs deep-link directly. Empty states
+(`app/templates/auth/_empty_*.html`) prompt the user to bootstrap an
+org before the keys/team tabs can manage anything. The Danger tab
+fronts `POST /api/account/delete`, which requires the caller to retype
+their own email — anonymous passwordless sessions can't self-delete.
+
+### MCP server (`cli/aegis-mcp`)
+
+A Model Context Protocol stdio server that wraps `/api/v1/*` so MCP
+hosts (Claude Code, Claude Desktop, Cursor, Continue, …) can call
+AEGIS audits + fan-out from inside a chat. Four tools:
+`aegis_ping`, `aegis_audit_url`, `aegis_audit_text`, `aegis_fanout`.
+
+Setup:
+
+```bash
+chmod +x cli/aegis-mcp   # one-time after checkout
+# then point your MCP host config at /opt/aegis/cli/aegis-mcp with
+# AEGIS_API_URL + AEGIS_API_KEY env vars set.
+```
+
+Full config snippet + verification in `cli/AEGIS_MCP_README.md`.
+
 ## Tests
 
 ```bash

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# AEGIS MCP server — shebang launcher.
+#
+# Resolves the repo root + invokes the package entry point via the local
+# virtualenv. Designed for MCP hosts that take a single `command` field
+# in their config instead of `command` + `args`.
+#
+# Make this file executable with `chmod +x cli/aegis-mcp` once after
+# checkout. See cli/AEGIS_MCP_README.md for the host-side config.
+
+set -euo pipefail
+
+# Resolve the repo root regardless of where the symlink-or-path lives.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+REPO_ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+
+# Prefer the local venv but fall back to the user's python.
+if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+  exec "$REPO_ROOT/.venv/bin/python" -m cli.aegis_mcp "$@"
+else
+  exec python3 -m cli.aegis_mcp "$@"
+fi

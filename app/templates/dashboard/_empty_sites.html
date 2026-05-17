@@ -1,0 +1,26 @@
+{# Empty state for the dashboard — shown when an org has no Sites yet.
+   Today this is just markup that the site dashboard route can include
+   when its query returns nothing. Not wired automatically — the dashboard
+   route still renders its own template, but operators can drop this in
+   if they want a first-run-friendly variant. #}
+<div class="gradient-border rounded-2xl p-10 text-center">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl glass mb-4 text-2xl">⊙</div>
+    <h2 class="text-lg font-bold text-white mb-1">No sites tracked yet</h2>
+    <p class="text-sm text-slate-400 max-w-md mx-auto mb-5">
+        AEGIS audits a Site by crawling its sitemap, fetching every page,
+        and running the AEO check suite + GEO probe against each. Add
+        your first site to get a weekly rollup of score deltas.
+    </p>
+    <form action="/api/site/ingest" method="post" class="flex flex-col sm:flex-row gap-2 max-w-xl mx-auto">
+        <input type="url" name="root_url" required
+               placeholder="https://example.com"
+               class="flex-1 rounded-lg px-4 py-2.5 text-sm" />
+        <button type="submit" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold">
+            Track this site
+        </button>
+    </form>
+    <p class="text-xs text-slate-500 mt-3">
+        We'll fetch <code class="text-slate-400">sitemap.xml</code> and queue
+        a first audit for every page we find (capped to 50 in your free tier).
+    </p>
+</div>

@@ -1,0 +1,49 @@
+{# Empty state for the Team tab — shown when the user is not an org owner
+   (or has no org yet). Owner role is required to invite/remove members. #}
+<div class="gradient-border rounded-2xl p-10 text-center">
+    <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl glass mb-4 text-2xl">◇</div>
+    <h2 class="text-lg font-bold text-white mb-1">
+        {% if primary_org %}
+            You don't own this org
+        {% else %}
+            No team yet
+        {% endif %}
+    </h2>
+    <p class="text-sm text-slate-400 max-w-md mx-auto mb-5">
+        {% if primary_org %}
+            You're a <span class="text-slate-300">{{ primary_role }}</span> on
+            <span class="text-slate-300">{{ primary_org.name }}</span>. Only the
+            org owner can invite or remove members. Reach out to your owner to
+            be promoted, or create your own org.
+        {% else %}
+            Create an organization to invite teammates. Roles let viewers see
+            reports, editors run audits, and owners manage billing.
+        {% endif %}
+    </p>
+    {% if not primary_org %}
+        <button id="empty-create-org-team" type="button" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold">
+            Create my org
+        </button>
+        <script>
+        (function () {
+            const btn = document.getElementById("empty-create-org-team");
+            if (!btn) return;
+            btn.addEventListener("click", async () => {
+                const name = prompt("Organization name (e.g. 'My Company')");
+                if (!name) return;
+                const r = await fetch("/api/orgs", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: name }),
+                });
+                if (!r.ok) {
+                    const e = await r.json().catch(() => ({}));
+                    alert("Create failed: " + (e.detail?.message || e.detail || `HTTP ${r.status}`));
+                    return;
+                }
+                location.reload();
+            });
+        })();
+        </script>
+    {% endif %}
+</div>

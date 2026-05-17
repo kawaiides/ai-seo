@@ -16,7 +16,7 @@ from app.models.schemas import (
     OrgMemberRecord,
     OrgRecord,
 )
-from app.services.auth import get_current_user
+from app.services.auth import get_current_user, get_or_create_user_by_email
 from app.services.orgs import (
     OrgContext,
     create_org,
@@ -43,6 +43,30 @@ async def create(
     return _serialise_org(org)
 
 
+@router.get("", response_model=list[OrgRecord])
+async def list_my_orgs(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> list[OrgRecord]:
+    """Every org the caller is a member of, newest first.
+
+    Powers the org-switcher in the Customer Console. Includes orgs in
+    every role (viewer / editor / owner) — the UI shows the user's role
+    chip per org so they know which they can manage.
+    """
+    if user is None:
+        raise HTTPException(status_code=401, detail={"error": "auth_required"})
+    rows = (
+        await session.execute(
+            select(Org)
+            .join(OrgMember, OrgMember.org_id == Org.id)
+            .where(OrgMember.user_id == user.id)
+            .order_by(Org.created_at.desc())
+        )
+    ).scalars().all()
+    return [_serialise_org(o) for o in rows]
+
+
 @router.get("/{org_id}", response_model=OrgRecord)
 async def get_org(
     ctx: OrgContext = Depends(require_role(OrgRole.viewer)),
@@ -57,9 +81,23 @@ async def invite(
     ctx: OrgContext = Depends(require_role(OrgRole.owner)),
     session: AsyncSession = Depends(get_session),
 ) -> OrgMemberRecord:
-    target = await session.get(User, req.user_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail={"error": "user_not_found"})
+    # Resolve which User row this invite points at. Two paths:
+    # (a) explicit user_id  → legacy callers + tests
+    # (b) email             → Customer Console UI; upserts a placeholder
+    #                         user when no account exists yet, so the
+    #                         invitee can claim it on their first sign-in.
+    if req.user_id is None and not req.email:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "missing_invitee", "message": "Provide user_id or email."},
+        )
+    if req.user_id is not None:
+        target = await session.get(User, req.user_id)
+        if target is None:
+            raise HTTPException(status_code=404, detail={"error": "user_not_found"})
+    else:
+        target, _ = await get_or_create_user_by_email(session, req.email)
+
     member = await invite_member(
         session, org_id=org_id, user=target, role=OrgRole(req.role)
     )

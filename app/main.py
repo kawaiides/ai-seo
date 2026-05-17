@@ -22,6 +22,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 load_dotenv(override=False)
 
 from app.api import (  # noqa: E402
+    account,
     admin,
     aeo,
     auth,
@@ -150,6 +151,7 @@ app.include_router(webhooks.router, prefix="/api/orgs/{org_id}/webhooks", tags=[
 app.include_router(v1.router, prefix="/api/v1", tags=["v1"])
 app.include_router(byok.router)
 app.include_router(auth.router)
+app.include_router(account.router, tags=["account"])
 app.include_router(billing.router)
 app.include_router(payment_webhooks.router)
 app.include_router(region.router)
