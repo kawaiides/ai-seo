@@ -28,6 +28,12 @@ from app.db.models import Audit, Contact, Prospect
 @pytest.fixture(autouse=True)
 def _signing_keys(monkeypatch):
     monkeypatch.setenv("REPORT_SIGNING_KEY", "k" * 32)
+    # Force SMTPTransport selection so legacy tests that monkey-patch
+    # `aiosmtplib.send` still hit it. Resend takes priority if its key
+    # is set, so make sure it isn't.
+    monkeypatch.delenv("RESEND_API_KEY", raising=False)
+    monkeypatch.setenv("SMTP_HOST", "localhost")
+    monkeypatch.setenv("SMTP_PORT", "1025")
 
 
 def _ctx() -> RenderContext:

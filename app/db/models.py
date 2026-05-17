@@ -653,3 +653,20 @@ class FunnelEvent(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
     meta: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB)
+
+
+class SeedQueryUsage(Base):
+    """Per-slug usage state for the autopilot seed-query rotation.
+
+    Catalog itself lives in `app.autopilot.seed_queries.SEED_QUERIES`;
+    this table only tracks "when was this slug last used + how often" so
+    the selector can rotate fairly across cron ticks.
+    """
+
+    __tablename__ = "seed_query_usage"
+
+    slug: Mapped[str] = mapped_column(String(64), primary_key=True)
+    last_used_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    use_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

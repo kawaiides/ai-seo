@@ -7,7 +7,11 @@ Picks (contact, audit) pairs that:
 For each match: insert a placeholder Outreach row with sent_at=NULL
 (ON CONFLICT DO NOTHING — the UNIQUE(contact_id, audit_id, template_variant)
 constraint guarantees one-and-only-one send across concurrent runners).
-Then render + send via aiosmtplib, then stamp sent_at + body_hash.
+Then render + send via the active `MailTransport`, then stamp sent_at +
+body_hash. Transport selection prefers Resend's API over self-managed
+SMTP because Resend handles SPF/DKIM/DMARC alignment for our sender
+domain (see `app.integrations.resend`); SMTP stays as a free fallback
+for self-hosted dev (MailHog) or operators who can't use Resend.
 
 Hard daily cap during warm-up to keep deliverability sane.
 """
@@ -20,7 +24,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.message import EmailMessage
-from typing import Any
+from typing import Any, Protocol
 
 import aiosmtplib
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -30,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.autopilot.report_builder import RenderContext, build_context
 from app.db.models import Audit, Contact, FunnelStage, Outreach, Prospect
+from app.integrations.resend import ResendMailer, SendResult
 from app.services.funnel import record as record_funnel
 
 log = logging.getLogger(__name__)
@@ -51,6 +56,147 @@ def _smtp_settings() -> dict[str, Any]:
         "password": os.environ.get("SMTP_PASS") or None,
         "from_addr": os.environ.get("SMTP_FROM", "audits@aegis.local"),
     }
+
+
+def _from_addr() -> str:
+    return os.environ.get("SMTP_FROM", "audits@aegis.local")
+
+
+def _reply_to() -> str | None:
+    return os.environ.get("MAIL_REPLY_TO") or None
+
+
+# ---- transport selection ----
+
+
+class MailTransport(Protocol):
+    """Honour the same shape as `ResendMailer.send`. The SMTP path also
+    wraps to this signature so the outbox loop is transport-agnostic."""
+
+    name: str
+    enabled: bool
+
+    async def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        html: str,
+        text: str,
+        from_addr: str,
+        reply_to: str | None = None,
+    ) -> SendResult: ...
+
+
+def _build_message(
+    from_addr: str,
+    to_addr: str,
+    rendered: "RenderedEmail",
+    *,
+    reply_to: str | None = None,
+) -> EmailMessage:
+    """Compose a MIME message with text + HTML parts.
+
+    Kept module-level so direct callers (test suite, ad-hoc admin
+    scripts) don't have to instantiate an SMTPTransport just to build a
+    message preview.
+    """
+    msg = EmailMessage()
+    msg["From"] = from_addr
+    msg["To"] = to_addr
+    msg["Subject"] = rendered.subject
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg.set_content(rendered.text)
+    msg.add_alternative(rendered.html, subtype="html")
+    return msg
+
+
+class SMTPTransport:
+    """Wraps aiosmtplib in the `MailTransport` shape so transports are
+    interchangeable. Behaviour preserved from the pre-refactor path."""
+
+    name = "smtp"
+
+    def __init__(self, settings: dict[str, Any] | None = None) -> None:
+        self._settings = settings or _smtp_settings()
+
+    @property
+    def enabled(self) -> bool:
+        host = self._settings.get("host")
+        return bool(host) and host != "localhost" or self._settings.get("port") == 1025
+
+    async def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        html: str,
+        text: str,
+        from_addr: str,
+        reply_to: str | None = None,
+    ) -> SendResult:
+        rendered = RenderedEmail(subject=subject, text=text, html=html)
+        msg = _build_message(from_addr, to, rendered, reply_to=reply_to)
+
+        kwargs: dict[str, Any] = {
+            "hostname": self._settings["host"],
+            "port": self._settings["port"],
+            "timeout": 30,
+        }
+        if self._settings["port"] == 587:
+            kwargs["start_tls"] = True
+        if self._settings.get("user"):
+            kwargs["username"] = self._settings["user"]
+            kwargs["password"] = self._settings["password"]
+        try:
+            await aiosmtplib.send(msg, **kwargs)
+        except Exception as e:  # noqa: BLE001 — aiosmtplib has many sub-types
+            # Treat SMTP errors as transient unless the message body is
+            # being rejected. Keeping the bucket wide is safer than the
+            # caller losing track of a hard reject.
+            return SendResult(
+                delivered=False,
+                detail=f"smtp error: {type(e).__name__}: {e}",
+                retryable=True,
+            )
+        return SendResult(delivered=True)
+
+
+class DryRunTransport:
+    """Log-only transport. Used when no carrier is configured AND no
+    `--dry-run` was requested, so the operator gets a loud reminder
+    instead of silently dropping the queue."""
+
+    name = "dry_run"
+    enabled = True
+
+    async def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        html: str,
+        text: str,
+        from_addr: str,
+        reply_to: str | None = None,
+    ) -> SendResult:
+        log.warning(
+            "mail[no_transport]: not sent to %s (subject=%r). Set RESEND_API_KEY or SMTP_HOST.",
+            to, subject,
+        )
+        return SendResult(delivered=False, detail="no transport configured", retryable=False)
+
+
+def _select_transport() -> MailTransport:
+    """Pick the best-available transport at call time so tests can
+    monkey-patch env vars and see the change without re-importing."""
+    resend = ResendMailer()
+    if resend.enabled:
+        return resend
+    if os.environ.get("SMTP_HOST"):
+        return SMTPTransport()
+    return DryRunTransport()
 
 
 # ---- template rendering ----
@@ -92,46 +238,6 @@ def render_email(ctx: RenderContext, variant: str = DEFAULT_TEMPLATE_VARIANT) ->
 def _attach_name(ctx: RenderContext, name: str | None) -> dict:
     """Wrap the frozen dataclass into a plain dict for Jinja, with contact name."""
     return {**ctx.__dict__, "contact_name": name}
-
-
-# ---- SMTP send ----
-
-
-async def _send(
-    message: EmailMessage,
-    *,
-    smtp: dict[str, Any],
-    dry_run: bool,
-) -> None:
-    if dry_run:
-        log.info("mail[dry_run]: would send to %s subj=%r", message["To"], message["Subject"])
-        return
-    kwargs: dict[str, Any] = {
-        "hostname": smtp["host"],
-        "port": smtp["port"],
-        "timeout": 30,
-    }
-    # Default to STARTTLS on 587; on 1025 (MailHog/dev) skip TLS entirely.
-    if smtp["port"] == 587:
-        kwargs["start_tls"] = True
-    if smtp["user"]:
-        kwargs["username"] = smtp["user"]
-        kwargs["password"] = smtp["password"]
-    await aiosmtplib.send(message, **kwargs)
-
-
-def _build_message(
-    from_addr: str,
-    to_addr: str,
-    rendered: RenderedEmail,
-) -> EmailMessage:
-    msg = EmailMessage()
-    msg["From"] = from_addr
-    msg["To"] = to_addr
-    msg["Subject"] = rendered.subject
-    msg.set_content(rendered.text)
-    msg.add_alternative(rendered.html, subtype="html")
-    return msg
 
 
 # ---- pipeline ----
@@ -208,14 +314,21 @@ async def send_pending(
     variant: str = DEFAULT_TEMPLATE_VARIANT,
     dry_run: bool = False,
     candidates: list[tuple[Contact, Audit, Prospect]] | None = None,
+    transport: MailTransport | None = None,
 ) -> SendStats:
     """Send the next batch of `variant` emails.
 
     When `candidates` is provided, skip the default JOIN — the caller
     has already decided which (contact, audit, prospect) tuples need
     this variant. Used by `email_sequence` for state-aware follow-ups.
+
+    `transport` is dependency-injected in tests; in production it's
+    selected from env via `_select_transport()` (Resend → SMTP → dry-run).
     """
-    smtp = _smtp_settings()
+    active_transport = transport or _select_transport()
+    from_addr = _from_addr()
+    reply_to = _reply_to()
+    log.info("mail: transport=%s dry_run=%s", active_transport.name, dry_run)
     stats = SendStats()
 
     if candidates is None:
@@ -246,17 +359,46 @@ async def send_pending(
             stats.skipped += 1
             continue
 
-        try:
-            msg = _build_message(smtp["from_addr"], contact.email, rendered)
-            await _send(msg, smtp=smtp, dry_run=dry_run)
-        except Exception as e:  # noqa: BLE001
-            err = f"{type(e).__name__}: {e}"
+        if dry_run:
+            log.info("mail[dry_run]: would send to %s subj=%r via %s",
+                     contact.email, rendered.subject, active_transport.name)
+            result = SendResult(delivered=True, detail="dry_run")
+        else:
+            try:
+                result = await active_transport.send(
+                    to=contact.email,
+                    subject=rendered.subject,
+                    html=rendered.html,
+                    text=rendered.text,
+                    from_addr=from_addr,
+                    reply_to=reply_to,
+                )
+            except Exception as e:  # noqa: BLE001 — last-resort safety
+                err = f"{type(e).__name__}: {e}"
+                log.warning("mail: send raised for %s: %s", contact.email, err)
+                stats.errors.append(err)
+                stats.failed += 1
+                await session.execute(
+                    update(Outreach).where(Outreach.id == outreach_id).values(error=err)
+                )
+                continue
+
+        if not result.delivered:
+            err = result.detail or "send failed"
             log.warning("mail: send failed for %s: %s", contact.email, err)
             stats.errors.append(err)
             stats.failed += 1
-            await session.execute(
-                update(Outreach).where(Outreach.id == outreach_id).values(error=err)
-            )
+            if result.retryable:
+                # Free the slot so the next tick can retry; idempotency
+                # guarantees we won't double-send if Resend later returns
+                # a delayed success.
+                await session.execute(
+                    update(Outreach).where(Outreach.id == outreach_id).values(error=err)
+                )
+            else:
+                await session.execute(
+                    update(Outreach).where(Outreach.id == outreach_id).values(error=err)
+                )
             continue
 
         await session.execute(
@@ -272,12 +414,17 @@ async def send_pending(
             FunnelStage.contacted,
             contact_id=contact.id,
             audit_id=audit.id,
-            meta={"variant": variant, "subject": rendered.subject},
+            meta={
+                "variant": variant,
+                "subject": rendered.subject,
+                "transport": active_transport.name,
+                "provider_id": result.provider_id,
+            },
         )
         stats.sent += 1
 
     log.info(
-        "mail: eligible=%d sent=%d skipped=%d failed=%d",
-        stats.eligible, stats.sent, stats.skipped, stats.failed,
+        "mail: transport=%s eligible=%d sent=%d skipped=%d failed=%d",
+        active_transport.name, stats.eligible, stats.sent, stats.skipped, stats.failed,
     )
     return stats

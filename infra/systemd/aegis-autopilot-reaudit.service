@@ -1,0 +1,20 @@
+[Unit]
+Description=AEGIS Autopilot — weekly site re-audit + Slack/Linear alerts
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/aegis
+EnvironmentFile=/opt/aegis/.env
+# site_reaudit walks every Site, re-audits its pages, computes score-drop
+# alerts (default threshold 10), and fans each alert to the env-driven
+# notifiers. Slack + Linear both no-op when their env vars aren't set.
+ExecStart=/opt/aegis/.venv/bin/python -m app.autopilot site_reaudit --pages-per-site 50 --concurrency 4
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

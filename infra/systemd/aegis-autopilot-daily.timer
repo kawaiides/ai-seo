@@ -1,0 +1,15 @@
+[Unit]
+Description=Run AEGIS autopilot prospect+audit pipeline once a day
+
+[Timer]
+# 03:30 UTC = pre-business-hours US + post-business-hours IN, so the
+# SerpAPI scrape doesn't compete with prime production traffic.
+OnCalendar=*-*-* 03:30:00 UTC
+# Persistent: if the box was off at the scheduled fire time (reboot,
+# maintenance), run on next start so the cron doesn't silently skip a day.
+Persistent=true
+RandomizedDelaySec=300
+Unit=aegis-autopilot-daily.service
+
+[Install]
+WantedBy=timers.target

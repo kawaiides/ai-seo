@@ -1,0 +1,15 @@
+[Unit]
+Description=Run AEGIS outbound mail batch once a day
+
+[Timer]
+# 14:00 UTC = 9 AM US-Eastern; aligns with the "send between 9–11 local"
+# deliverability heuristic since US Eastern is our biggest segment.
+# Daily timer runs ~10.5h after aegis-autopilot-daily.timer so contacts +
+# reports are populated before the mailer reads them.
+OnCalendar=*-*-* 14:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+Unit=aegis-autopilot-mail.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,24 @@
+[Unit]
+Description=AEGIS Autopilot — daily prospect + audit + contacts + reports
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/aegis
+EnvironmentFile=/opt/aegis/.env
+# `run` chains: prospect → audit → contacts → report → mail → sequence
+# in app/autopilot/__main__.py. We pass --auto-seed so the cron picks
+# the next stale entry from app.autopilot.seed_queries.SEED_QUERIES
+# without an operator setting --seed each day.
+ExecStart=/opt/aegis/.venv/bin/python -m app.autopilot prospect --auto-seed --limit 20
+ExecStart=/opt/aegis/.venv/bin/python -m app.autopilot audit --batch-size 20 --concurrency 4
+ExecStart=/opt/aegis/.venv/bin/python -m app.autopilot contacts --limit 50
+ExecStart=/opt/aegis/.venv/bin/python -m app.autopilot report --limit 50
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=2400
+
+[Install]
+WantedBy=multi-user.target

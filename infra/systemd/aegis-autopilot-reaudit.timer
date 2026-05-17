@@ -1,0 +1,13 @@
+[Unit]
+Description=Run AEGIS weekly site re-audit on Mondays
+
+[Timer]
+# Mondays 04:00 UTC — kicks off the new week so a Tuesday-morning email
+# can land citing the prior week's score deltas.
+OnCalendar=Mon *-*-* 04:00:00 UTC
+Persistent=true
+RandomizedDelaySec=600
+Unit=aegis-autopilot-reaudit.service
+
+[Install]
+WantedBy=timers.target

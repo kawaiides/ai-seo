@@ -151,5 +151,24 @@ class ManualContactFinder:
 
 
 def default_finder() -> ContactFinder:
-    """Production default: try mailto scrape, fall back to stub on errors."""
-    return HomepageMailtoFinder()
+    """Production default: composite chain.
+
+    Order matters — cheaper signals first so we don't burn Hunter credit
+    on prospects whose homepage already exposes a `mailto:`:
+
+      1. HomepageMailtoFinder  — free, one HTTP GET per prospect
+      2. HunterContactFinder   — paid; skipped if HUNTER_API_KEY unset
+
+    If neither hits, returns an empty list and the mailer skips this
+    prospect on the next pass.
+    """
+    # Local import to keep the optional Hunter dependency lazy.
+    from app.autopilot.contact_finders import (
+        CompositeContactFinder,
+        HunterContactFinder,
+    )
+
+    return CompositeContactFinder([
+        HomepageMailtoFinder(),
+        HunterContactFinder(),
+    ])

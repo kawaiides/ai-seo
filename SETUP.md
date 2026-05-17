@@ -196,6 +196,47 @@ app startup):
 `.env` is gitignored. A real shell env still takes precedence over
 `.env` (`load_dotenv(override=False)`).
 
+### Autopilot loop (cron / systemd)
+
+The passive outbound pipeline needs three optional env vars on top of
+the core API set:
+
+| Variable | Required? | Notes |
+|---|---|---|
+| `SERPAPI_API_KEY` | Yes for `prospect` | SERP fetcher in `app/autopilot/prospector.py`. |
+| `HUNTER_API_KEY`  | Optional | Enables `HunterContactFinder`; the composite finder falls back to the homepage `mailto:` scrape when missing. |
+| `RESEND_API_KEY`  | Pref'd over SMTP | Used by `app/integrations/resend.py`. When set, `outbox_mailer._select_transport()` prefers it. |
+| `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS` | Fallback | Old aiosmtplib path; used only when `RESEND_API_KEY` is unset. |
+| `SMTP_FROM`       | Recommended | Envelope-from used by both transports (no SMTP_-prefix variant for Resend). |
+| `MAIL_REPLY_TO`   | Optional | `Reply-To` header injected on every send. |
+| `SLACK_WEBHOOK_URL` / `LINEAR_API_KEY` + `LINEAR_TEAM_ID` | Optional | `site_reaudit` Slack/Linear score-drop alerts. |
+| `AEGIS_ENV`       | See note  | Set `local` to unlock the demo billing mock; `production` (or unset) requires real Stripe/Razorpay keys. Demo box at `52.64.13.171` runs in `local` intentionally — flip before accepting paying customers. |
+
+The autopilot ships three systemd timers in `infra/systemd/`:
+
+- `aegis-autopilot-daily.timer` (03:30 UTC daily) — runs `prospect --auto-seed`, then `audit`, `contacts`, `report`.
+- `aegis-autopilot-mail.timer` (14:00 UTC daily) — runs `mail`, then `sequence`.
+- `aegis-autopilot-reaudit.timer` (Monday 04:00 UTC) — runs `site_reaudit` + dispatches Slack/Linear alerts.
+
+Install:
+
+```bash
+sudo cp infra/systemd/*.service /etc/systemd/system/
+sudo cp infra/systemd/*.timer  /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now \
+    aegis-autopilot-daily.timer \
+    aegis-autopilot-mail.timer \
+    aegis-autopilot-reaudit.timer
+systemctl list-timers --all | grep aegis
+```
+
+`--auto-seed` rotates through `app/autopilot/seed_queries.SEED_QUERIES`
+picking the least-recently-used slug (state lives in the
+`seed_query_usage` table — Alembic 0007). Operators can override on
+demand with `python -m app.autopilot prospect --seed "best X"` from the
+CLI; explicit `--seed` always beats `--auto-seed`.
+
 ## Tests
 
 ```bash

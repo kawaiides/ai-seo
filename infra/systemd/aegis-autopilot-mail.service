@@ -1,0 +1,21 @@
+[Unit]
+Description=AEGIS Autopilot — outbound mail + sequence tick
+After=network-online.target postgresql.service aegis-autopilot-daily.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/aegis
+EnvironmentFile=/opt/aegis/.env
+# Two sends per day: the first-touch cold_outreach batch, then the
+# state-aware sequence tick (followup_competitor / followup_byok /
+# breakup / trial_nudge). Daily cap of 30 enforced inside outbox_mailer.
+ExecStart=/opt/aegis/.venv/bin/python -m app.autopilot mail --cutoff 70 --max-sends 30
+ExecStart=/opt/aegis/.venv/bin/python -m app.autopilot sequence --max-sends 30
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=1200
+
+[Install]
+WantedBy=multi-user.target

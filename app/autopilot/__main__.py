@@ -25,6 +25,7 @@ from app.autopilot.email_sequence import tick as sequence_tick  # noqa: E402
 from app.autopilot.outbox_mailer import send_pending as mail_send_pending  # noqa: E402
 from app.autopilot.prospector import discover  # noqa: E402
 from app.autopilot.report_builder import build_pending as build_reports_pending  # noqa: E402
+from app.autopilot.seed_queries import pick_next_seed  # noqa: E402
 from app.autopilot.site_runner import run_weekly_reaudit  # noqa: E402
 from app.db.base import dispose_engine, get_sessionmaker  # noqa: E402
 from app.db.models import Prospect, ProspectStatus  # noqa: E402
@@ -44,10 +45,32 @@ def _configure_logging(verbose: bool) -> None:
 async def _cmd_prospect(args: argparse.Namespace) -> int:
     sm = get_sessionmaker()
     async with sm() as session:
-        new = await discover(session, args.seed, limit=args.limit)
+        seed = await _resolve_seed(session, args)
+        if seed is None:
+            print("prospect: no seed specified and no enabled catalog entries; abort")
+            return 2
+        new = await discover(session, seed, limit=args.limit)
         await session.commit()
-    print(f"prospect: inserted {len(new)} new prospects for seed {args.seed!r}")
+    print(f"prospect: inserted {len(new)} new prospects for seed {seed!r}")
     return 0
+
+
+async def _resolve_seed(session, args: argparse.Namespace) -> str | None:
+    """Pick the query string to feed `discover()`.
+
+    `--seed` is explicit. `--auto-seed` rotates through the catalog.
+    Explicit `--seed` always wins so an operator can override the cron.
+    """
+    if getattr(args, "seed", None):
+        return args.seed
+    if getattr(args, "auto_seed", False):
+        chosen = await pick_next_seed(session)
+        if chosen is None:
+            return None
+        print(f"prospect: auto-seed chose {chosen.slug!r} ({chosen.vertical}, "
+              f"locale={chosen.locale})")
+        return chosen.text
+    return None
 
 
 async def _cmd_audit(args: argparse.Namespace) -> int:
@@ -187,7 +210,13 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_prospect = sub.add_parser("prospect", help="Run SerpAPI discovery")
-    p_prospect.add_argument("--seed", required=True)
+    p_prospect.add_argument("--seed", default=None,
+                            help="Explicit search query. Required unless --auto-seed.")
+    p_prospect.add_argument(
+        "--auto-seed", action="store_true",
+        help="Rotate through app/autopilot/seed_queries.SEED_QUERIES; "
+             "picks the least-recently-used slug, stamps usage in DB.",
+    )
     p_prospect.add_argument("--limit", type=int, default=10)
     p_prospect.set_defaults(func=_cmd_prospect)
 
@@ -230,7 +259,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_seq.set_defaults(func=_cmd_sequence)
 
     p_run = sub.add_parser("run", help="prospect → audit → report → mail")
-    p_run.add_argument("--seed", required=True)
+    p_run.add_argument("--seed", default=None,
+                       help="Explicit search query. Required unless --auto-seed.")
+    p_run.add_argument(
+        "--auto-seed", action="store_true",
+        help="Rotate through SEED_QUERIES instead of requiring --seed.",
+    )
     p_run.add_argument("--limit", type=int, default=10)
     p_run.add_argument("--batch-size", type=int, default=20)
     p_run.add_argument("--concurrency", type=int, default=5)
