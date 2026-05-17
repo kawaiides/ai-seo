@@ -18,12 +18,13 @@ data "aws_ami" "al2023_arm64" {
 
 locals {
   user_data = templatefile("${path.module}/templates/user_data.sh.tftpl", {
-    aws_region        = local.region
-    secret_arn        = aws_secretsmanager_secret.app_env.arn
-    image_uri         = local.image_uri
-    domain_name       = var.domain_name
-    backups_bucket    = aws_s3_bucket.backups.bucket
-    db_address        = aws_db_instance.main.address
+    aws_region     = local.region
+    secret_arn     = aws_secretsmanager_secret.app_env.arn
+    image_uri      = local.image_uri
+    domain_name    = var.domain_name
+    backups_bucket = aws_s3_bucket.backups.bucket
+    db_address     = aws_db_instance.main.address
+    enable_tls     = var.enable_tls
   })
 }
 

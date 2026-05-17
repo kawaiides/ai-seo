@@ -394,6 +394,57 @@
         animation: pulse-ring 1.6s cubic-bezier(.21,1.02,.73,1) infinite;
       }
 
+      /* Button spinner — replaces icon while scan is in flight */
+      .btn-spinner {
+        display: inline-block;
+        width: 18px; height: 18px;
+        border: 2px solid rgba(255,255,255,.25);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin .7s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* Skeleton — mimics the result card layout while AEO + fan-out land */
+      .skeleton-shimmer {
+        background: linear-gradient(
+          90deg,
+          rgba(255,255,255,.04) 0%,
+          rgba(255,255,255,.10) 50%,
+          rgba(255,255,255,.04) 100%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.6s linear infinite;
+      }
+
+      /* Step indicator dot */
+      .step-dot {
+        flex: none;
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        color: white;
+      }
+      .step-dot.pending { background: rgba(255,255,255,.08); color: rgba(148,163,184,.5); }
+      .step-dot.active {
+        background: linear-gradient(135deg, #8b5cf6, #ec4899);
+        box-shadow: 0 0 12px rgba(139,92,246,.6);
+      }
+      .step-dot.active::after {
+        content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%;
+        border: 2px solid rgba(167,139,250,.5);
+        animation: pulse-ring 1.6s cubic-bezier(.21,1.02,.73,1) infinite;
+      }
+      .step-row { transition: color .25s ease; }
+      .step-row.done .step-dot { background: linear-gradient(135deg, #10b981, #34d399); box-shadow: 0 0 8px rgba(16,185,129,.4); }
+      .step-row.done { color: rgb(167,243,208); }
+      .step-row.active { color: rgb(167,139,250); }
+      .step-row.pending { color: rgb(100,116,139); }
+
       /* Custom scrollbar */
       ::-webkit-scrollbar { width: 8px; height: 8px; }
       ::-webkit-scrollbar-track { background: transparent; }
@@ -427,13 +478,23 @@
     </div>
     <div class="hidden sm:flex items-center gap-5 text-sm text-slate-400">
         <a href="#how" class="hover:text-white transition">How it works</a>
+        <a href="#pro" class="hover:text-white transition flex items-center gap-1">Pro <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" class="text-amber-400"><path d="M12 2 15 9l7 .9-5.1 4.9 1.4 7.2L12 18.5 5.7 22l1.4-7.2L2 9.9 9 9z"/></svg></a>
         <a href="/blog" class="hover:text-white transition">Blog</a>
         <a href="/pricing" class="hover:text-white transition">Pricing</a>
         <a href="#faq" class="hover:text-white transition">FAQ</a>
         {% if current_user %}
-            <a href="/account" class="text-slate-300 hover:text-white transition flex items-center gap-2">
+            {% set _plan = (current_user.plan.value if current_user.plan is defined and current_user.plan and current_user.plan.value is defined else (current_user.plan|string if current_user.plan is defined else 'free')) %}
+            {% set _is_pro = _plan and _plan != 'free' %}
+            <a href="/account" class="text-slate-300 hover:text-white transition flex items-center gap-2" data-is-pro="{{ 'true' if _is_pro else 'false' }}">
                 <span class="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-[10px] font-bold text-white">{{ (current_user.email or '?')[:1]|upper }}</span>
                 <span>Account</span>
+                {% if _is_pro %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow shadow-fuchsia-500/30 ring-1 ring-white/20"
+                      title="Pro plan: {{ _plan }}">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 15 9l7 .9-5.1 4.9 1.4 7.2L12 18.5 5.7 22l1.4-7.2L2 9.9 9 9z"/></svg>
+                    Pro
+                </span>
+                {% endif %}
             </a>
         {% else %}
             <a href="/login" class="hover:text-white transition">Log in</a>
@@ -492,18 +553,23 @@
                       class="w-full rounded-lg px-4 py-3 font-mono text-sm"></textarea>
         </div>
 
-        <details class="mt-5 rounded-lg border border-white/5 bg-white/[.02] overflow-hidden">
+        <details class="mt-5 rounded-lg border border-white/5 bg-white/[.02] overflow-hidden" open>
             <summary class="px-4 py-3 flex items-center justify-between text-sm font-medium text-slate-300 hover:bg-white/[.03] transition">
                 <span class="flex items-center gap-2">
                     <span class="text-violet-400">✦</span>
-                    Optional: semantic gap analysis (Query Fan-Out)
+                    Semantic gap analysis (Query Fan-Out)
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30">on by default</span>
                 </span>
                 <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </summary>
             <div class="px-4 pb-4 pt-1">
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 mt-2">Target search query</label>
-                <input id="target-query" type="text" placeholder='e.g. "best generative AI optimization tools 2026"'
+                <label for="target-query" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 mt-2">Target search query <span class="text-slate-500 normal-case font-normal">— we'll suggest one from your content, edit before re-running</span></label>
+                <input id="target-query" type="text" placeholder='Leave blank — we will infer from your H1, or type your own'
                        class="w-full rounded-lg px-4 py-2.5 text-sm" />
+                <p id="suggested-hint" class="hidden text-xs text-slate-400 mt-2 leading-relaxed">
+                    <span class="text-violet-300 font-semibold">✦ Suggested from your content.</span>
+                    <button id="rerun-fanout" type="button" class="ml-1 underline decoration-dotted hover:text-white">Re-run fan-out with edits →</button>
+                </p>
                 <p class="text-xs text-slate-500 mt-2 leading-relaxed">Generates 10–15 sub-queries across comparative, feature, use-case, trust, how-to, and definitional intent — then checks which your content covers.</p>
             </div>
         </details>
@@ -511,7 +577,10 @@
         <button id="scan-btn" type="button"
                 class="btn-primary mt-6 w-full text-white font-semibold py-3.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed text-base tracking-tight">
             <span class="relative z-10 flex items-center justify-center gap-2">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span id="scan-btn-icon-default">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                </span>
+                <span id="scan-btn-spinner" class="btn-spinner hidden" role="status" aria-live="polite" aria-label="Scanning"></span>
                 <span id="scan-btn-label">Run AEO scan</span>
             </span>
         </button>
@@ -546,6 +615,205 @@
                 <div class="font-semibold text-slate-100 mb-1 text-sm">Pre-publish, not post-hoc</div>
                 <div class="text-xs text-slate-400 leading-relaxed">Catch problems before AI engines index you. Rewrite suggestions on every fail.</div>
             </div>
+        </div>
+    </section>
+
+    <!-- Pro features showcase -->
+    <section id="pro" class="mt-24" aria-labelledby="pro-heading">
+        <div class="text-center mb-8">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow shadow-fuchsia-500/30 ring-1 ring-white/20 mb-3">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 15 9l7 .9-5.1 4.9 1.4 7.2L12 18.5 5.7 22l1.4-7.2L2 9.9 9 9z"/></svg>
+                Pro features
+            </span>
+            <h2 id="pro-heading" class="text-2xl sm:text-3xl font-bold tracking-tight text-white">Everything the free scanner misses</h2>
+            <p class="text-sm text-slate-400 mt-3 max-w-xl mx-auto">Five surfaces only Pro unlocks. Free tier shows scores; Pro shows you the diff that fixes them.</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <!-- Pro 1 — Bulk rewrite + diff -->
+            <article class="gradient-border rounded-2xl p-5 group">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">B.2 · LLM rewrite</div>
+                        <h3 class="text-base font-semibold text-white">Bulk rewrite + markdown diff</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: side-by-side rewrite diff -->
+                <div class="rounded-lg overflow-hidden border border-white/5 bg-black/40 font-mono text-[10px] leading-relaxed">
+                    <div class="px-3 py-1.5 border-b border-white/5 bg-white/[.02] flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-rose-500/60"></span>
+                        <span class="w-2 h-2 rounded-full bg-amber-400/60"></span>
+                        <span class="w-2 h-2 rounded-full bg-emerald-400/60"></span>
+                        <span class="ml-2 text-slate-500">bulk-rewrite-diff.md</span>
+                    </div>
+                    <div class="p-3 space-y-1.5">
+                        <div class="text-rose-300/90">- Python can be considered to be a very popular language…</div>
+                        <div class="text-rose-300/60 pl-3 text-[9px]">Check A: 8/20 · 72 words · hedge phrases</div>
+                        <div class="text-emerald-300/90 pt-1">+ Python is a high-level programming language for data science, web development, and scripting.</div>
+                        <div class="text-emerald-300/60 pl-3 text-[9px]">Check A: 20/20 · 18 words · declarative</div>
+                        <div class="text-slate-500 mt-2 text-[9px]">3 variants returned · back-validated against Check A</div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">One call returns 3 LLM-rewritten variants per failing check + a unified markdown diff. Each variant is back-validated; we never hand back a fix that doesn't fix.</p>
+            </article>
+
+            <!-- Pro 2 — Site dashboard -->
+            <article class="gradient-border rounded-2xl p-5 group">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">C.1 · Site-level</div>
+                        <h3 class="text-base font-semibold text-white">Site dashboard + 7-day trend</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: dashboard with trend chart -->
+                <div class="rounded-lg overflow-hidden border border-white/5 bg-black/40 p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <div class="text-[10px] uppercase tracking-wider text-slate-500">Mean score</div>
+                            <div class="text-xl font-bold text-emerald-300 font-mono leading-none">76<span class="text-xs text-slate-500">/100</span></div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-[10px] uppercase tracking-wider text-slate-500">Audited</div>
+                            <div class="text-sm font-bold text-white font-mono">42/50</div>
+                        </div>
+                    </div>
+                    <!-- Sparkline -->
+                    <svg viewBox="0 0 200 50" class="w-full h-10" aria-hidden="true">
+                        <defs>
+                            <linearGradient id="spark1" x1="0" x2="0" y1="0" y2="1">
+                                <stop offset="0" stop-color="#a78bfa" stop-opacity=".4"/>
+                                <stop offset="1" stop-color="#a78bfa" stop-opacity="0"/>
+                            </linearGradient>
+                        </defs>
+                        <path d="M0,38 L30,32 L60,28 L90,22 L120,30 L150,18 L180,14 L200,10 L200,50 L0,50 Z" fill="url(#spark1)"/>
+                        <polyline points="0,38 30,32 60,28 90,22 120,30 150,18 180,14 200,10" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+                    </svg>
+                    <div class="grid grid-cols-3 gap-1 mt-2 text-[9px] font-mono">
+                        <div class="text-emerald-300/80 truncate">/blog/python ✓ 92</div>
+                        <div class="text-amber-300/80 truncate">/blog/django ✓ 68</div>
+                        <div class="text-rose-300/80 truncate">/docs/intro ✗ 34</div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">Ingest a sitemap once, get per-page scores, top-10 worst pages, missing-cluster rollups, and a 7-day mean-score trend. Re-audit weekly via cron.</p>
+            </article>
+
+            <!-- Pro 3 — GEO citation tracking -->
+            <article class="gradient-border rounded-2xl p-5 group">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">C.2 · GEO</div>
+                        <h3 class="text-base font-semibold text-white">Does ChatGPT actually cite you?</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: citation history bars -->
+                <div class="rounded-lg overflow-hidden border border-white/5 bg-black/40 p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="font-mono text-[10px] text-slate-400">"best AEO tool 2026"</div>
+                        <span class="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 ring-1 ring-cyan-500/30">CACHED 2d</span>
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <div class="w-12 text-[9px] font-mono text-slate-500">Wk -3</div>
+                            <div class="flex-1 h-3 bg-white/5 rounded-sm overflow-hidden"><div class="h-full bg-rose-500/60" style="width:0%"></div></div>
+                            <div class="w-8 text-[9px] font-mono text-slate-400 text-right">0%</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-12 text-[9px] font-mono text-slate-500">Wk -2</div>
+                            <div class="flex-1 h-3 bg-white/5 rounded-sm overflow-hidden"><div class="h-full bg-amber-400/70" style="width:33%"></div></div>
+                            <div class="w-8 text-[9px] font-mono text-slate-400 text-right">33%</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-12 text-[9px] font-mono text-slate-500">Wk -1</div>
+                            <div class="flex-1 h-3 bg-white/5 rounded-sm overflow-hidden"><div class="h-full bg-emerald-400/70" style="width:67%"></div></div>
+                            <div class="w-8 text-[9px] font-mono text-slate-400 text-right">67%</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-12 text-[9px] font-mono text-emerald-300">This</div>
+                            <div class="flex-1 h-3 bg-white/5 rounded-sm overflow-hidden"><div class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400" style="width:85%"></div></div>
+                            <div class="w-8 text-[9px] font-mono text-emerald-300 text-right">85%</div>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">Track citation rate per target query across ChatGPT / Perplexity / Gemini week-over-week. 7-day TTL cache keeps the margin north of 90%; force-refresh on demand.</p>
+            </article>
+
+            <!-- Pro 4 — Internal linking -->
+            <article class="gradient-border rounded-2xl p-5 group">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">B.3 · Linking</div>
+                        <h3 class="text-base font-semibold text-white">Internal-linking suggestions</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: link suggestions list -->
+                <div class="rounded-lg overflow-hidden border border-white/5 bg-black/40 divide-y divide-white/5 text-[10px] font-mono">
+                    <div class="p-2.5 flex items-center justify-between">
+                        <div class="min-w-0">
+                            <div class="text-emerald-300 truncate">→ /blog/django-tutorial</div>
+                            <div class="text-slate-500 text-[9px] truncate">match: how to migrate to Django</div>
+                        </div>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-300 ring-1 ring-violet-500/20 ml-2">0.81</span>
+                    </div>
+                    <div class="p-2.5 flex items-center justify-between">
+                        <div class="min-w-0">
+                            <div class="text-emerald-300 truncate">→ /blog/python-crm</div>
+                            <div class="text-slate-500 text-[9px] truncate">match: CRM with Python</div>
+                        </div>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-300 ring-1 ring-violet-500/20 ml-2">0.74</span>
+                    </div>
+                    <div class="p-2.5 flex items-center justify-between">
+                        <div class="min-w-0">
+                            <div class="text-emerald-300 truncate">→ /docs/api-quickstart</div>
+                            <div class="text-slate-500 text-[9px] truncate">match: REST API tutorial</div>
+                        </div>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-300 ring-1 ring-violet-500/20 ml-2">0.66</span>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">Embed your sitemap once; for every missing intent cluster, AEGIS surfaces the top-K most semantically related pages already on your site + anchor-text suggestions.</p>
+            </article>
+
+            <!-- Pro 5 — API + webhooks + CI -->
+            <article class="gradient-border rounded-2xl p-5 group sm:col-span-2">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">E · API + CI</div>
+                        <h3 class="text-base font-semibold text-white">Bearer-token API, signed webhooks, GitHub Action gate</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: terminal -->
+                <div class="rounded-lg overflow-hidden border border-white/5 bg-black/60 font-mono text-[10px] leading-snug">
+                    <div class="px-3 py-1.5 border-b border-white/5 bg-white/[.02] flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-rose-500/60"></span>
+                        <span class="w-2 h-2 rounded-full bg-amber-400/60"></span>
+                        <span class="w-2 h-2 rounded-full bg-emerald-400/60"></span>
+                        <span class="ml-2 text-slate-500">.github/workflows/aeo-gate.yml</span>
+                    </div>
+                    <div class="p-3 space-y-0.5">
+                        <div><span class="text-violet-300">- name:</span> AEGIS audit gate</div>
+                        <div class="pl-3"><span class="text-violet-300">env:</span></div>
+                        <div class="pl-6"><span class="text-cyan-300">AEGIS_API_KEY:</span> <span class="text-amber-300">${{ secrets.AEGIS_API_KEY }}</span></div>
+                        <div class="pl-3"><span class="text-violet-300">run:</span> <span class="text-emerald-300">python -m cli.aegis_ci --threshold 70 $URLS</span></div>
+                        <div class="text-slate-500 mt-2 text-[9px]">✓ /blog/new-post  score=92  band=AEO Optimized  threshold=70</div>
+                        <div class="text-slate-500 text-[9px]">✗ /blog/draft     score=58  band=Significant Gaps  threshold=70</div>
+                        <div class="text-rose-300 text-[9px]">Exit 1 — below threshold</div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">Scoped API keys (`audit:write`, `geo:read`, etc.), HMAC-signed outbound webhooks on `audit.completed` / `score.dropped`, plus a single-binary <code class="text-cyan-300 bg-cyan-500/10 px-1 rounded">cli/aegis_ci.py</code> that fails your CI build when any URL drops below your AEO threshold.</p>
+            </article>
+
+        </div>
+
+        <div class="text-center mt-8">
+            <a href="/pricing" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl btn-primary text-white font-semibold text-sm">
+                See pricing
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
         </div>
     </section>
 
@@ -849,29 +1117,172 @@ function setStatus(text, withOrb) {
     s.innerHTML = withOrb ? `<span class="scan-orb"></span> <span>${escapeHTML(text)}</span>` : escapeHTML(text);
 }
 
+function setButtonLoading(isLoading, labelText) {
+    const icon = $("scan-btn-icon-default");
+    const spinner = $("scan-btn-spinner");
+    const label = $("scan-btn-label");
+    $("scan-btn").disabled = isLoading;
+    icon.classList.toggle("hidden", isLoading);
+    spinner.classList.toggle("hidden", !isLoading);
+    if (labelText) label.textContent = labelText;
+}
+
+/* Skeleton card while AEO + fan-out are in flight. Mimics the real
+   layout so the page doesn't jump when results arrive. The step list on
+   the right tracks pipeline progress; `markStep()` flips a row from
+   pending → active → done. */
+function renderSkeleton() {
+    return `
+        <div data-skeleton class="gradient-border rounded-2xl p-7 animate-fadeup" role="status" aria-live="polite" aria-busy="true">
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-7">
+                <!-- Skeleton gauge -->
+                <div class="relative flex-none">
+                    <div class="w-36 h-36 rounded-full skeleton-shimmer flex items-center justify-center">
+                        <div class="w-28 h-28 rounded-full bg-[#0a0a16] flex items-center justify-center">
+                            <span class="btn-spinner" style="width:28px;height:28px;border-width:3px"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skeleton summary + steps -->
+                <div class="flex-1 min-w-0 w-full">
+                    <div class="h-3 w-24 rounded skeleton-shimmer mb-3"></div>
+                    <div class="h-6 w-48 rounded skeleton-shimmer mb-5"></div>
+
+                    <ul class="space-y-2 text-sm" id="step-list">
+                        <li class="step-row active flex items-center gap-3" data-step="fetch">
+                            <span class="step-dot active relative">1</span>
+                            <span>${escapeHTML("Fetching & parsing content")}</span>
+                        </li>
+                        <li class="step-row pending flex items-center gap-3" data-step="checks">
+                            <span class="step-dot pending">2</span>
+                            <span>${escapeHTML("Running 7 AEO checks")}</span>
+                        </li>
+                        <li class="step-row pending flex items-center gap-3" data-step="suggest">
+                            <span class="step-dot pending">3</span>
+                            <span>${escapeHTML("Inferring target query")}</span>
+                        </li>
+                        <li class="step-row pending flex items-center gap-3" data-step="fanout">
+                            <span class="step-dot pending">4</span>
+                            <span>${escapeHTML("Generating fan-out & coverage")}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Skeleton check rows -->
+            <div class="mt-6 pt-6 border-t border-white/5 space-y-2">
+                ${[0,1,2,3,4,5,6].map(i => `
+                    <div class="rounded-xl px-4 py-3 border border-white/5 bg-white/[.02] flex items-center gap-3 animate-fadeup" style="animation-delay:${0.05 + i*0.04}s">
+                        <span class="w-7 h-7 rounded-lg skeleton-shimmer"></span>
+                        <span class="h-3 flex-1 rounded skeleton-shimmer"></span>
+                        <span class="h-3 w-12 rounded skeleton-shimmer"></span>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `;
+}
+
+function markStep(name, state /* "active" | "done" */) {
+    const li = document.querySelector(`[data-step='${name}']`);
+    if (!li) return;
+    li.classList.remove("pending", "active", "done");
+    li.classList.add(state);
+    const dot = li.querySelector(".step-dot");
+    if (!dot) return;
+    dot.classList.remove("pending", "active", "done");
+    dot.classList.add(state);
+    if (state === "done") dot.textContent = "✓";
+}
+
+function clearSkeleton() {
+    document.querySelector("[data-skeleton]")?.remove();
+}
+
+// Cached context for re-runs (when user edits the suggested query
+// and clicks "Re-run fan-out with edits →").
+let lastScanContext = null;  // { mode, value, existing }
+
+async function runFanout(targetQuery) {
+    if (!lastScanContext) return null;
+    return await postJSON("/api/fanout/generate", {
+        target_query: targetQuery,
+        existing_content: lastScanContext.existing,
+    });
+}
+
+function fanoutResultHTML(fan) {
+    if (fan.ok) return renderFanout(fan.data);
+    if (fan.status === 429) {
+        return renderError("Fan-out skipped", "Rate limit reached for today.");
+    }
+    if (fan.status === 503) {
+        return renderError("Fan-out unavailable",
+            fan.data.message || fan.data.detail || "LLM did not return a valid response.");
+    }
+    return renderError("Fan-out failed",
+        fan.data.message || fan.data.detail || `HTTP ${fan.status}`);
+}
+
+function appendFanoutHTML(html) {
+    const results = $("results");
+    // Drop any prior fan-out block so re-runs don't stack.
+    const prior = results.querySelector("[data-fanout-block]");
+    if (prior) prior.remove();
+    const wrap = document.createElement("div");
+    wrap.dataset.fanoutBlock = "1";
+    wrap.innerHTML = html;
+    results.appendChild(wrap);
+}
+
+$("rerun-fanout").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const targetQuery = $("target-query").value.trim();
+    if (!targetQuery || !lastScanContext) return;
+    setStatus("Re-running fan-out with edited query…", true);
+    $("progress").classList.remove("hidden");
+    const fan = await runFanout(targetQuery);
+    appendFanoutHTML(fanoutResultHTML(fan));
+    setStatus("Fan-out updated.", false);
+    $("progress").classList.add("hidden");
+    document.querySelector("[data-fanout-block]")?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
 $("scan-btn").addEventListener("click", async () => {
-    const btn = $("scan-btn");
-    const btnLabel = $("scan-btn-label");
     const results = $("results");
     const progress = $("progress");
+    const queryInput = $("target-query");
+    const suggestedHint = $("suggested-hint");
 
     const value = (mode === "url" ? $("url-value").value : $("text-value").value).trim();
     if (!value) {
         setStatus("Enter a URL or paste content first.", false);
         return;
     }
-    const targetQuery = $("target-query").value.trim();
 
-    btn.disabled = true;
-    btnLabel.textContent = "Analyzing…";
-    setStatus("Running AEO checks…", true);
+    // Treat any non-empty target-query as user-supplied. Fan-out is on
+    // by default — empty means "we'll suggest one".
+    const explicitQuery = queryInput.value.trim();
+
+    setButtonLoading(true, "Analyzing…");
+    setStatus("Fetching & parsing content…", true);
     progress.classList.remove("hidden");
-    results.classList.add("hidden");
-    results.innerHTML = "";
+
+    // Show skeleton up-front so the page doesn't jump when real results
+    // land. Steps flip from pending → active → done as the pipeline
+    // advances.
+    results.classList.remove("hidden");
+    results.innerHTML = renderSkeleton();
+    suggestedHint.classList.add("hidden");
+    results.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    markStep("fetch", "active");
 
     const aeoRes = await postJSON("/api/aeo/analyze", { input_type: mode, input_value: value });
 
     if (!aeoRes.ok) {
+        clearSkeleton();
         if (aeoRes.status === 429) {
             results.innerHTML = renderError("Daily limit reached",
                 "You've used 3 free scans today. Come back tomorrow or get in touch for a paid plan.");
@@ -879,39 +1290,77 @@ $("scan-btn").addEventListener("click", async () => {
             results.innerHTML = renderError(aeoRes.data.error || "Error",
                 aeoRes.data.message || aeoRes.data.detail || `HTTP ${aeoRes.status}`);
         }
-        results.classList.remove("hidden");
-        btn.disabled = false;
-        btnLabel.textContent = "Run AEO scan";
+        setButtonLoading(false, "Run AEO scan");
         setStatus("", false);
         progress.classList.add("hidden");
         return;
     }
 
-    let html = renderAEO(aeoRes.data);
+    markStep("fetch", "done");
+    markStep("checks", "done");
 
-    if (targetQuery) {
-        setStatus("Generating query fan-out…", true);
-        const existing = mode === "text" ? value : null;
-        const fan = await postJSON("/api/fanout/generate", {
-            target_query: targetQuery,
-            existing_content: existing,
-        });
-        if (fan.ok) {
-            html += renderFanout(fan.data);
-        } else if (fan.status === 429) {
-            html += renderError("Fan-out skipped", "Rate limit reached for today.");
-        } else {
-            html += renderError("Fan-out failed",
-                fan.data.message || fan.data.detail || `HTTP ${fan.status}`);
+    // Decide the fan-out query: user-supplied wins; otherwise use the
+    // server's suggestion derived from H1/title/first-sentence. If neither,
+    // skip fan-out entirely (no signal to seed it).
+    const suggested = (aeoRes.data.suggested_target_query || "").trim();
+    const effectiveQuery = explicitQuery || suggested;
+
+    lastScanContext = {
+        mode,
+        value,
+        existing: mode === "text" ? value : null,
+    };
+
+    markStep("suggest", effectiveQuery ? "done" : "pending");
+
+    // Now replace the skeleton with the real AEO card; keep the fan-out
+    // slot open and showing its own mini-skeleton until the fan-out call
+    // returns.
+    clearSkeleton();
+    results.innerHTML = renderAEO(aeoRes.data);
+
+    if (effectiveQuery) {
+        if (!explicitQuery && suggested) {
+            queryInput.value = suggested;
+            suggestedHint.classList.remove("hidden");
         }
+        // Fan-out placeholder while the LLM runs (4-12s)
+        appendFanoutHTML(`
+            <div class="gradient-border rounded-2xl p-7 animate-fadeup" data-fanout-skeleton role="status" aria-live="polite" aria-busy="true">
+                <div class="flex items-center gap-3 mb-5">
+                    <span class="btn-spinner" style="width:18px;height:18px"></span>
+                    <div>
+                        <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Generating fan-out</div>
+                        <div class="text-sm text-slate-300 mt-1">10–15 sub-queries for <span class="text-white font-semibold">"${escapeHTML(effectiveQuery.slice(0, 80))}${effectiveQuery.length > 80 ? "…" : ""}"</span></div>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    ${[0,1,2,3,4,5,6,7,8,9,10,11].map(i => `
+                        <div class="flex items-center gap-3 animate-fadeup" style="animation-delay:${0.04 + i*0.03}s">
+                            <span class="h-3 w-20 rounded skeleton-shimmer"></span>
+                            <span class="h-3 flex-1 rounded skeleton-shimmer"></span>
+                            <span class="h-3 w-6 rounded skeleton-shimmer"></span>
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+        `);
+        setStatus(`Generating query fan-out for "${effectiveQuery.slice(0, 80)}${effectiveQuery.length > 80 ? "…" : ""}"…`, true);
+        const fan = await runFanout(effectiveQuery);
+        appendFanoutHTML(fanoutResultHTML(fan));
+        markStep("fanout", "done");
+    } else {
+        appendFanoutHTML(`
+            <div class="rounded-xl border border-white/5 bg-white/[.02] p-4 text-sm text-slate-400 animate-fadeup">
+                <span class="text-violet-300 font-semibold">Fan-out skipped:</span>
+                we couldn't infer a target query from your content. Add an H1, or type one above and click <em>Re-run fan-out</em>.
+            </div>
+        `);
     }
 
-    results.innerHTML = html;
-    results.classList.remove("hidden");
     setStatus("Scan complete.", false);
     progress.classList.add("hidden");
-    btn.disabled = false;
-    btnLabel.textContent = "Run another scan";
+    setButtonLoading(false, "Run another scan");
 
     results.scrollIntoView({ behavior: "smooth", block: "start" });
 });

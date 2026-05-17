@@ -1,7 +1,13 @@
 variable "aws_region" {
   description = "AWS region for every resource in this module."
   type        = string
-  default     = "us-east-1"
+  default     = "ap-southeast-2"
+}
+
+variable "enable_tls" {
+  description = "Enable Caddy auto-TLS via Let's Encrypt. Requires a real public domain pointing at the EIP. Set false when deploying without DNS."
+  type        = bool
+  default     = true
 }
 
 variable "project" {

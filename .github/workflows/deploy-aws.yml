@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: ap-southeast-2
   ECR_REPOSITORY: aegis-app
   IMAGE_TAG: ${{ github.sha }}
 

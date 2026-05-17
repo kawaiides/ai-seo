@@ -1,4 +1,8 @@
 locals {
+  url_scheme  = var.enable_tls ? "https" : "http"
+  public_host = var.enable_tls ? var.domain_name : aws_eip.app.public_ip
+  base_url    = "${local.url_scheme}://${local.public_host}"
+
   base_env = {
     DATABASE_URL          = "postgresql+asyncpg://aegis:${random_password.db.result}@${aws_db_instance.main.address}:5432/aegis"
     OPENAI_API_KEY        = var.openai_api_key
@@ -6,9 +10,9 @@ locals {
     REPORT_SIGNING_KEY    = random_password.report_signing_key.result
     SESSION_SIGNING_KEY   = random_password.session_signing_key.result
     ADMIN_TOKEN           = random_password.admin_token.result
-    APP_BASE_URL          = "https://${var.domain_name}"
-    REPORT_BASE_URL       = "https://${var.domain_name}"
-    AEGIS_SITE_URL        = "https://${var.domain_name}"
+    APP_BASE_URL          = local.base_url
+    REPORT_BASE_URL       = local.base_url
+    AEGIS_SITE_URL        = local.base_url
     ALLOWED_ORIGINS       = local.allowed_origins
     STRIPE_SECRET_KEY     = var.stripe_secret_key
     STRIPE_WEBHOOK_SECRET = var.stripe_webhook_secret

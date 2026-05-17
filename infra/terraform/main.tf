@@ -29,7 +29,7 @@ locals {
   ecr_repo        = "${var.project}-app"
   account_id      = data.aws_caller_identity.current.account_id
   region          = data.aws_region.current.name
-  default_origins = "https://${var.domain_name},https://www.${var.domain_name}"
+  default_origins = var.enable_tls ? "https://${var.domain_name},https://www.${var.domain_name}" : "*"
   allowed_origins = var.allowed_origins != "" ? var.allowed_origins : local.default_origins
   image_uri       = "${local.account_id}.dkr.ecr.${local.region}.amazonaws.com/${local.ecr_repo}:latest"
 }

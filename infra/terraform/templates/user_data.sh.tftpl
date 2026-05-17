@@ -75,6 +75,7 @@ COMPOSE
 chown -R ec2-user:ec2-user /opt/aegis
 
 # Caddyfile
+%{ if enable_tls ~}
 cat > /etc/caddy/Caddyfile <<CADDY
 {
     email admin@$${DOMAIN_NAME}
@@ -98,6 +99,25 @@ hooks.$${DOMAIN_NAME} {
     }
 }
 CADDY
+%{ else ~}
+# enable_tls = false: serve plain HTTP on :80 (any host) until a real
+# domain is wired. Swap by setting enable_tls=true + a real domain_name,
+# then `terraform apply` and the next deploy will re-render this file.
+cat > /etc/caddy/Caddyfile <<CADDY
+{
+    auto_https off
+}
+
+:80 {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+CADDY
+%{ endif ~}
 systemctl enable --now caddy
 systemctl reload caddy || true
 

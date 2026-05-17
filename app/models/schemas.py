@@ -53,6 +53,7 @@ class AEOAnalyzeResponse(BaseModel):
     aeo_score: int
     band: str
     checks: list[CheckResultModel]
+    suggested_target_query: str | None = None
 
 
 class URLFetchErrorResponse(BaseModel):
