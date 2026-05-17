@@ -4,6 +4,13 @@ Given a list of generated sub-queries and a piece of user-pasted content,
 determine which sub-queries the content already covers (max cosine
 similarity to any content sentence ≥ THRESHOLD).
 
+v2 adds *heading-aware passage chunking*: when the input is HTML with
+`<h1>`/`<h2>`/`<h3>` section breaks, sentences are grouped into
+passages rooted at the most recent heading. This lets the gap-detector
+match a sub-query against a *section topic* rather than against the
+single best sentence — which catches passages that answer the intent
+holistically without any one sentence being a high-similarity hit.
+
 Why MiniLM + normalized embeddings + matmul:
 - MiniLM-L6-v2: 5x faster than mpnet, ~80MB, sufficient for fuzzy
   coverage scoring at this threshold range. Spec line 471 green-flags
@@ -19,6 +26,8 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
+from bs4 import BeautifulSoup
+
 from app.models.schemas import (
     GapSummary,
     LLMSubQuery,
@@ -29,8 +38,11 @@ from app.services.embeddings import get_embedder
 from app.services.nlp import get_nlp
 
 THRESHOLD: float = 0.72
+PASSAGE_THRESHOLD: float = 0.58
 DEFAULT_MIN_WORDS: int = 4
 DEFAULT_MAX_CHUNKS: int = 500
+DEFAULT_MAX_PASSAGES: int = 200
+PASSAGE_MAX_SENTENCES: int = 5
 
 
 def chunk_content(

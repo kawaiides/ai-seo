@@ -642,7 +642,7 @@
                 Pro features
             </span>
             <h2 id="pro-heading" class="text-2xl sm:text-3xl font-bold tracking-tight text-white">Everything the free scanner misses</h2>
-            <p class="text-sm text-slate-400 mt-3 max-w-xl mx-auto">Nine surfaces only Pro unlocks — every roadmap phase mapped to a live API. Free tier shows scores; Pro shows you the diff that fixes them.</p>
+            <p class="text-sm text-slate-400 mt-3 max-w-xl mx-auto">Ten surfaces only Pro unlocks — every roadmap phase mapped to a live API. Free tier runs three structural checks; Pro adds four more, plus every rewrite/dashboard/integration below.</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -927,7 +927,45 @@
                 <p class="text-xs text-slate-400 mt-3 leading-relaxed">English isn't the whole web. AEGIS auto-detects 16 locales (Devanagari / Tamil / Bengali via Unicode script ranges, European via curated stop-words) and dispatches to the right readability metric. Fan-out prompts + GEO probes carry the locale through.</p>
             </article>
 
-            <!-- Pro 9 — API + webhooks + CI -->
+            <!-- Pro 9 — Deeper structural checks (D/E/F/G) -->
+            <article class="gradient-border rounded-2xl p-5 group sm:col-span-2">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">A · Engine depth</div>
+                        <h3 class="text-base font-semibold text-white">4 deeper structural checks (only on Pro)</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: free vs Pro check matrix -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="rounded-lg border border-emerald-500/15 bg-emerald-500/[.03] p-3">
+                        <div class="text-[10px] uppercase tracking-wider text-emerald-300 font-bold mb-2 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Free tier (3 / day)
+                        </div>
+                        <ul class="space-y-1 text-[11px] text-slate-300">
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> A · Direct Answer</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> B · H-Tag Hierarchy</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> C · Snippet Readability</li>
+                            <li class="flex items-center gap-2 text-slate-500"><span class="text-slate-600">·</span> aeo_score capped at 60</li>
+                        </ul>
+                    </div>
+                    <div class="rounded-lg border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-500/[.06] to-violet-500/[.04] p-3">
+                        <div class="text-[10px] uppercase tracking-wider font-bold mb-2 flex items-center gap-1.5">
+                            <span class="text-amber-300">✦</span>
+                            <span class="bg-gradient-to-r from-amber-300 to-fuchsia-300 bg-clip-text text-transparent">Pro tier · +4 deeper checks</span>
+                        </div>
+                        <ul class="space-y-1 text-[11px] text-slate-200">
+                            <li class="flex items-center gap-2"><span class="text-fuchsia-300">✦</span> D · Entity Coverage <span class="text-[9px] text-slate-500">(spaCy NER · 10 labels)</span></li>
+                            <li class="flex items-center gap-2"><span class="text-fuchsia-300">✦</span> E · Schema.org Markup <span class="text-[9px] text-slate-500">(JSON-LD + microdata, populated-prop scoring)</span></li>
+                            <li class="flex items-center gap-2"><span class="text-fuchsia-300">✦</span> F · Citation Density <span class="text-[9px] text-slate-500">(.gov / .edu / 40-domain whitelist)</span></li>
+                            <li class="flex items-center gap-2"><span class="text-fuchsia-300">✦</span> G · Freshness Signals <span class="text-[9px] text-slate-500">(JSON-LD / meta / &lt;time&gt; cascade)</span></li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">Free shows A / B / C and locks the rest behind <code class="text-cyan-300 bg-cyan-500/10 px-1 rounded">locked_checks</code> in the response. Pro runs all seven; the aeo_score normaliser counts the full denominator so a clean page can actually break 90+.</p>
+            </article>
+
+            <!-- Pro 10 — API + webhooks + CI -->
             <article class="gradient-border rounded-2xl p-5 group sm:col-span-2">
                 <div class="flex items-start justify-between mb-3">
                     <div>

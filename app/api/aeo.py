@@ -4,20 +4,29 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.models.schemas import (
     AEOAnalyzeRequest,
     AEOAnalyzeResponse,
     CheckResultModel,
+    LockedCheckModel,
 )
-from app.services.aeo_checks import default_checks
+from app.services.aeo_checks import (
+    checks_for_plan,
+    free_checks,
+    pro_checks,
+)
 from app.services.content_parser import (
     ContentParseError,
     ParsedContent,
     URLFetchError,
     fetch_url,
     parse,
+)
+from app.services.gating import (
+    PaywallContext,
+    require_pro_or_byok_or_quota_no_count,
 )
 
 router = APIRouter()
@@ -37,8 +46,15 @@ _STRIP_PREFIX_RE = re.compile(
 )
 
 
-@router.post("/analyze", response_model=AEOAnalyzeResponse)
-async def analyze(req: AEOAnalyzeRequest) -> AEOAnalyzeResponse:
+@router.post(
+    "/analyze",
+    response_model=AEOAnalyzeResponse,
+    response_model_exclude_none=True,
+)
+async def analyze(
+    req: AEOAnalyzeRequest,
+    ctx: PaywallContext = Depends(require_pro_or_byok_or_quota_no_count),
+) -> AEOAnalyzeResponse:
     if req.input_type == "url":
         raw = await fetch_url(req.input_value)
     else:
@@ -46,13 +62,24 @@ async def analyze(req: AEOAnalyzeRequest) -> AEOAnalyzeResponse:
 
     parsed = parse(raw, input_type=req.input_type)
 
-    results = [check.run(parsed) for check in default_checks()]
-    return _build_response(results, parsed)
+    is_pro = ctx.has_active_subscription or ctx.using_byok
+    results = [check.run(parsed) for check in checks_for_plan(is_pro)]
+
+    locked: list[LockedCheckModel] | None = None
+    if not is_pro:
+        locked = [
+            LockedCheckModel(check_id=c.check_id, name=c.name)
+            for c in pro_checks()
+        ]
+    return _build_response(results, parsed, is_pro=is_pro, locked=locked)
 
 
 def _build_response(
     results: list[CheckResultModel],
     parsed: ParsedContent | None = None,
+    *,
+    is_pro: bool = True,
+    locked: list[LockedCheckModel] | None = None,
 ) -> AEOAnalyzeResponse:
     raw_total = sum(r.score for r in results)
     max_total = sum(r.max_score for r in results) or 60
@@ -64,6 +91,8 @@ def _build_response(
         band=band,
         checks=results,
         suggested_target_query=suggested,
+        locked_checks=locked,
+        plan="pro" if is_pro else "free",
     )
 
 

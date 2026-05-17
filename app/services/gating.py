@@ -154,3 +154,39 @@ def reset_quota() -> None:
     """Test helper — wipe the in-memory counter."""
     with _quota_lock:
         _quota.clear()
+
+
+async def require_pro_or_byok_or_quota_no_count(
+    request: Request,
+    x_byok_openai_key: Optional[str] = Header(default=None, alias=BYOK_HEADER_OPENAI),
+    x_byok_gemini_key: Optional[str] = Header(default=None, alias=BYOK_HEADER_GEMINI),
+    user: Optional[User] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> PaywallContext:
+    """Resolve plan tier without touching the free-scan quota counter.
+
+    Used by endpoints that gate *features* (Pro-only checks) rather than
+    *budget* (LLM spend). The caller decides what to show based on
+    `ctx.has_active_subscription` / `ctx.using_byok`; nothing 429s.
+    """
+    if user is not None and x_byok_openai_key:
+        if await is_key_valid_cached(db, user, x_byok_openai_key, BYOKProvider.openai):
+            return PaywallContext(
+                user=user,
+                byok_key=x_byok_openai_key,
+                has_active_subscription=False,
+            )
+
+    if user is not None and x_byok_gemini_key:
+        if await is_key_valid_cached(db, user, x_byok_gemini_key, BYOKProvider.gemini):
+            return PaywallContext(
+                user=user,
+                byok_key=x_byok_gemini_key,
+                has_active_subscription=False,
+            )
+
+    has_sub = False
+    if user is not None:
+        has_sub = await _has_active_subscription(db, user)
+
+    return PaywallContext(user=user, byok_key=None, has_active_subscription=has_sub)
