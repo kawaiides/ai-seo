@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import logging
 import os
 import threading
+import uuid
 from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Load .env once at import so OPENAI_API_KEY/OPENAI_MODEL are available
 # wherever services need them (LLM client, etc.). override=False so a
@@ -150,6 +155,233 @@ app.include_router(payment_webhooks.router)
 app.include_router(region.router)
 app.include_router(blog.router)
 app.include_router(admin.router)
+
+
+# ---- Graceful error rendering ----
+#
+# API callers (anything under /api/* or that explicitly asked for JSON
+# via Accept) get a stable JSON envelope. Anything else gets a styled
+# HTML page rendered from templates/errors/error.html so a stray 404 or
+# unhandled exception doesn't leak a Starlette traceback or a bare
+# "Internal Server Error" string.
+#
+# request_id is a short opaque identifier that's safe to surface to the
+# user — it shows up in server logs alongside the full traceback so an
+# operator can grep without exposing the original error detail.
+
+_log = logging.getLogger(__name__)
+
+_STATUS_COPY: dict[int, tuple[str, str]] = {
+    400: ("Bad request",
+          "The request couldn't be understood. Check the input and try again."),
+    401: ("Sign in required",
+          "You need to sign in to view this page."),
+    403: ("Not allowed",
+          "You don't have access to this resource."),
+    404: ("Page not found",
+          "The page you're looking for doesn't exist or has moved."),
+    405: ("Method not allowed",
+          "That action isn't supported on this URL."),
+    409: ("Conflict",
+          "That action conflicts with the current state. Refresh and try again."),
+    410: ("Gone",
+          "This page has been permanently removed."),
+    413: ("Too large",
+          "The content you submitted is too big to process."),
+    422: ("Couldn't process that",
+          "The input didn't pass validation. Fix the highlighted issues and retry."),
+    429: ("Too many requests",
+          "You've hit the rate limit. Wait a moment and try again, "
+          "or upgrade to remove the cap."),
+    500: ("Something went wrong",
+          "An unexpected error occurred on our side. Our team has been notified."),
+    502: ("Upstream error",
+          "A service we depend on returned an error. Please retry shortly."),
+    503: ("Temporarily unavailable",
+          "We're briefly unavailable. Please try again in a few moments."),
+    504: ("Upstream timeout",
+          "An upstream service took too long to respond. Please retry."),
+}
+
+
+def _wants_json(request: Request) -> bool:
+    """True if the caller is API-style and expects a JSON envelope.
+
+    Two signals: path under /api/* (every JSON route we own), or an
+    Accept header that prefers JSON over HTML. Browsers send
+    `text/html,application/xhtml+xml,...` so they fall through to HTML.
+    """
+    if request.url.path.startswith("/api/"):
+        return True
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept and "text/html" not in accept:
+        return True
+    return False
+
+
+def _status_copy(status_code: int) -> tuple[str, str]:
+    if status_code in _STATUS_COPY:
+        return _STATUS_COPY[status_code]
+    if 400 <= status_code < 500:
+        return ("Request failed",
+                "The request couldn't be completed. Check the URL and try again.")
+    return _STATUS_COPY[500]
+
+
+def _new_request_id() -> str:
+    return uuid.uuid4().hex[:12]
+
+
+def _render_error_html(
+    request: Request,
+    *,
+    status_code: int,
+    detail: str | None = None,
+    request_id: str | None = None,
+) -> HTMLResponse:
+    headline, message = _status_copy(status_code)
+    # Refuse to render the styled page if a template loader failure would
+    # itself raise inside this handler — fall back to plain text so we
+    # never end up in a handler-of-the-handler loop.
+    try:
+        # Pull current_user best-effort: if it raises (e.g. no DB), skip.
+        current_user = None
+        return templates.TemplateResponse(
+            request,
+            "errors/error.html",
+            {
+                "status_code": status_code,
+                "headline": headline,
+                "message": message,
+                "detail": detail,
+                "request_id": request_id or _new_request_id(),
+                "current_user": current_user,
+            },
+            status_code=status_code,
+        )
+    except Exception as render_err:  # pragma: no cover — defensive only
+        _log.exception("error template render failed: %s", render_err)
+        return HTMLResponse(
+            content=(
+                f"<html><body style='font-family:system-ui;padding:48px;"
+                f"max-width:640px;margin:auto;color:#1e293b'>"
+                f"<h1 style='margin:0 0 12px'>{headline}</h1>"
+                f"<p>{message}</p>"
+                f"<p><a href='/'>Back to home</a></p>"
+                f"</body></html>"
+            ),
+            status_code=status_code,
+        )
+
+
+def _api_error_envelope(
+    status_code: int,
+    detail: object,
+    *,
+    request_id: str,
+) -> dict:
+    # Preserve dict-shaped HTTPException details so existing API callers
+    # keep their {error, message, ...} envelopes; wrap bare strings.
+    if isinstance(detail, dict):
+        envelope = dict(detail)
+        envelope.setdefault("request_id", request_id)
+        return envelope
+    headline, message = _status_copy(status_code)
+    return {
+        "error": "http_error",
+        "status": status_code,
+        "message": message if detail is None else str(detail),
+        "headline": headline,
+        "request_id": request_id,
+    }
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> Response:
+    request_id = _new_request_id()
+    if exc.status_code >= 500:
+        _log.warning(
+            "http_exception status=%s path=%s request_id=%s detail=%r",
+            exc.status_code, request.url.path, request_id, exc.detail,
+        )
+    if _wants_json(request):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=_api_error_envelope(exc.status_code, exc.detail, request_id=request_id),
+            headers=exc.headers or None,
+        )
+    detail_str = (
+        None
+        if exc.detail in (None, "", "Not Found", "Method Not Allowed")
+        else (
+            "; ".join(f"{k}: {v}" for k, v in exc.detail.items())
+            if isinstance(exc.detail, dict)
+            else str(exc.detail)
+        )
+    )
+    return _render_error_html(
+        request,
+        status_code=exc.status_code,
+        detail=detail_str,
+        request_id=request_id,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> Response:
+    request_id = _new_request_id()
+    if _wants_json(request):
+        return JSONResponse(
+            status_code=422,
+            content=jsonable_encoder(
+                {
+                    "error": "validation_failed",
+                    "status": 422,
+                    "errors": exc.errors(),
+                    "request_id": request_id,
+                }
+            ),
+        )
+    # Summarise field errors so the user sees what to fix, but cap to avoid
+    # rendering 200 lines of pydantic.
+    detail_lines = []
+    for e in exc.errors()[:6]:
+        loc = ".".join(str(p) for p in e.get("loc", []) if p not in ("body",))
+        detail_lines.append(f"{loc or 'request'} — {e.get('msg', '')}")
+    return _render_error_html(
+        request,
+        status_code=422,
+        detail="\n".join(detail_lines) if detail_lines else None,
+        request_id=request_id,
+    )
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
+    request_id = _new_request_id()
+    _log.exception(
+        "unhandled_exception path=%s request_id=%s", request.url.path, request_id,
+    )
+    if _wants_json(request):
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "server_error",
+                "status": 500,
+                "message": "An unexpected error occurred.",
+                "request_id": request_id,
+            },
+        )
+    return _render_error_html(
+        request,
+        status_code=500,
+        detail=None,  # never surface internals in HTML — log has the trace
+        request_id=request_id,
+    )
 
 
 @app.exception_handler(URLFetchError)
