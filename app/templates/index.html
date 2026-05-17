@@ -642,7 +642,7 @@
                 Pro features
             </span>
             <h2 id="pro-heading" class="text-2xl sm:text-3xl font-bold tracking-tight text-white">Everything the free scanner misses</h2>
-            <p class="text-sm text-slate-400 mt-3 max-w-xl mx-auto">Five surfaces only Pro unlocks. Free tier shows scores; Pro shows you the diff that fixes them.</p>
+            <p class="text-sm text-slate-400 mt-3 max-w-xl mx-auto">Nine surfaces only Pro unlocks — every roadmap phase mapped to a live API. Free tier shows scores; Pro shows you the diff that fixes them.</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -793,7 +793,141 @@
                 <p class="text-xs text-slate-400 mt-3 leading-relaxed">Embed your sitemap once; for every missing intent cluster, AEGIS surfaces the top-K most semantically related pages already on your site + anchor-text suggestions.</p>
             </article>
 
-            <!-- Pro 5 — API + webhooks + CI -->
+            <!-- Pro 5 — Direct-answer LLM rewrite -->
+            <article class="gradient-border rounded-2xl p-5 group">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">B.1 · Rewrite A</div>
+                        <h3 class="text-base font-semibold text-white">Direct-answer LLM rewrite</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: 3 variant tabs -->
+                <div class="rounded-lg overflow-hidden border border-white/5 bg-black/40">
+                    <div class="flex border-b border-white/5 text-[10px] font-mono">
+                        <div class="px-3 py-1.5 bg-violet-500/10 text-violet-300 border-r border-white/5">definition_first ✓</div>
+                        <div class="px-3 py-1.5 text-slate-500 border-r border-white/5">cause_effect ✓</div>
+                        <div class="px-3 py-1.5 text-slate-500">outcome_first ✓</div>
+                    </div>
+                    <div class="p-3 text-[11px] text-slate-200 leading-relaxed">
+                        Python is a high-level programming language used for data science, web development, and scripting.
+                    </div>
+                    <div class="px-3 pb-3 flex items-center gap-3 text-[9px] font-mono text-slate-500">
+                        <span>17 words</span>
+                        <span class="text-emerald-400">declarative ✓</span>
+                        <span class="text-emerald-400">Check A 20/20</span>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">3 LLM-rewritten variants in 3 styles. Each one is re-scored against Check A before it lands in your inbox; failing variants trigger a retry. You never get back a "fix" that doesn't fix.</p>
+            </article>
+
+            <!-- Pro 6 — Schema.org JSON-LD generator -->
+            <article class="gradient-border rounded-2xl p-5 group">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">B.2 · Schema-gen</div>
+                        <h3 class="text-base font-semibold text-white">Intent-aware JSON-LD</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: emitted JSON-LD block -->
+                {% raw %}
+                <div class="rounded-lg overflow-hidden border border-white/5 bg-black/60 font-mono text-[10px] leading-snug">
+                    <div class="px-3 py-1.5 border-b border-white/5 bg-white/[.02] flex items-center justify-between">
+                        <span class="text-slate-500">paste into &lt;head&gt;</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-300 ring-1 ring-violet-500/20">FAQPage detected</span>
+                    </div>
+                    <div class="p-3 text-slate-300 space-y-0.5">
+                        <div><span class="text-slate-500">&lt;script type=</span><span class="text-amber-300">"application/ld+json"</span><span class="text-slate-500">&gt;</span></div>
+                        <div class="pl-2">{</div>
+                        <div class="pl-4"><span class="text-cyan-300">"@type"</span>: <span class="text-amber-300">"FAQPage"</span>,</div>
+                        <div class="pl-4"><span class="text-cyan-300">"mainEntity"</span>: [</div>
+                        <div class="pl-6">{ <span class="text-cyan-300">"@type"</span>: <span class="text-amber-300">"Question"</span>,</div>
+                        <div class="pl-8"><span class="text-cyan-300">"name"</span>: <span class="text-amber-300">"When are taxes due?"</span> },</div>
+                        <div class="pl-6">… 2 more</div>
+                        <div class="pl-4">]</div>
+                        <div class="pl-2">}</div>
+                        <div><span class="text-slate-500">&lt;/script&gt;</span></div>
+                    </div>
+                </div>
+                {% endraw %}
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">Detects FAQPage / HowTo / Article intent from your heading structure, asks the LLM to emit a populated JSON-LD block keyed off your actual sentences, then back-validates it against Check E. No stubs, no fabrication.</p>
+            </article>
+
+            <!-- Pro 7 — Slack + Linear alerts -->
+            <article class="gradient-border rounded-2xl p-5 group">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">D · Integrations</div>
+                        <h3 class="text-base font-semibold text-white">Slack + Linear on score drop</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: Slack message bubble -->
+                <div class="rounded-lg overflow-hidden border border-white/5 bg-black/40 p-3">
+                    <div class="flex items-start gap-2.5">
+                        <div class="w-7 h-7 rounded-md bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center font-black text-white text-[10px] flex-none">A</div>
+                        <div class="flex-1 min-w-0 text-[10px]">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                <span class="text-white font-bold">AEGIS</span>
+                                <span class="text-[9px] px-1 py-0 rounded bg-violet-500/15 text-violet-300">APP</span>
+                                <span class="text-slate-500">9:14 AM</span>
+                            </div>
+                            <div class="text-slate-300">⚠ <span class="text-rose-300 font-semibold">AEO score drop</span> for <code class="text-cyan-300 bg-cyan-500/10 px-1 rounded">example.com</code></div>
+                            <div class="text-slate-400 mt-1">/blog/quarterly-taxes: <span class="text-rose-300 font-mono">82 → 58</span> (-24)</div>
+                            <div class="text-slate-500 text-[9px] mt-1">Newly failing: <code class="text-amber-300 bg-amber-500/10 px-1 rounded">freshness</code> <code class="text-amber-300 bg-amber-500/10 px-1 rounded">citations</code></div>
+                            <div class="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-fuchsia-500/15 text-fuchsia-300 text-[10px]">
+                                <span>↪</span> Linear issue <span class="font-mono text-[9px]">ENG-42</span> opened
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">Weekly re-audit posts to Slack the moment a page drops ≥10 points week-over-week + opens a Linear issue with the failing checks. HMAC-signed payloads; FakeNotifier in tests.</p>
+            </article>
+
+            <!-- Pro 8 — Multi-locale readability -->
+            <article class="gradient-border rounded-2xl p-5 group">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-[10px] uppercase tracking-wider text-violet-300 font-bold mb-1">F · Localisation</div>
+                        <h3 class="text-base font-semibold text-white">Per-locale readability + fan-out</h3>
+                    </div>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-fuchsia-500 text-white shadow-sm">Pro</span>
+                </div>
+                <!-- Mock screenshot: locale → metric chip grid -->
+                <div class="rounded-lg overflow-hidden border border-white/5 bg-black/40 p-3">
+                    <div class="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20">
+                            <span>🇬🇧 en</span>
+                            <span class="text-[9px]">Flesch-Kincaid</span>
+                        </div>
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded bg-violet-500/10 text-violet-300 ring-1 ring-violet-500/20">
+                            <span>🇪🇸 es</span>
+                            <span class="text-[9px]">Fernandez-Huerta</span>
+                        </div>
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-500/20">
+                            <span>🇩🇪 de</span>
+                            <span class="text-[9px]">Wiener-Sach.</span>
+                        </div>
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/20">
+                            <span>🇮🇹 it</span>
+                            <span class="text-[9px]">Gulpease</span>
+                        </div>
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded bg-fuchsia-500/10 text-fuchsia-300 ring-1 ring-fuchsia-500/20">
+                            <span>🇸🇪 sv</span>
+                            <span class="text-[9px]">LIX</span>
+                        </div>
+                        <div class="flex items-center justify-between px-2 py-1.5 rounded bg-rose-500/10 text-rose-300 ring-1 ring-rose-500/20">
+                            <span>🇮🇳 hi · ta · bn …</span>
+                            <span class="text-[9px]">syllable density</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-[9px] text-slate-500 text-center">Locale auto-detected via script + stop-word heuristic · 16 locales</div>
+                </div>
+                <p class="text-xs text-slate-400 mt-3 leading-relaxed">English isn't the whole web. AEGIS auto-detects 16 locales (Devanagari / Tamil / Bengali via Unicode script ranges, European via curated stop-words) and dispatches to the right readability metric. Fan-out prompts + GEO probes carry the locale through.</p>
+            </article>
+
+            <!-- Pro 9 — API + webhooks + CI -->
             <article class="gradient-border rounded-2xl p-5 group sm:col-span-2">
                 <div class="flex items-start justify-between mb-3">
                     <div>

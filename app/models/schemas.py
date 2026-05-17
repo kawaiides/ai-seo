@@ -49,11 +49,27 @@ class CheckResultModel(BaseModel):
     recommendation: str | None = None
 
 
+class LockedCheckModel(BaseModel):
+    """Placeholder shown when a Pro check is gated behind the paywall.
+
+    The free response still lists the check_id + name so the UI can render
+    a locked-state card with an upgrade CTA, but no scoring information is
+    included.
+    """
+
+    check_id: str
+    name: str
+    locked: bool = True
+    reason: str = "pro_required"
+
+
 class AEOAnalyzeResponse(BaseModel):
     aeo_score: int
     band: str
     checks: list[CheckResultModel]
     suggested_target_query: str | None = None
+    locked_checks: list[LockedCheckModel] | None = None
+    plan: Literal["free", "pro"] = "free"
 
 
 class URLFetchErrorResponse(BaseModel):
