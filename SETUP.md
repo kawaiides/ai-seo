@@ -8,9 +8,153 @@
 
 | Feature | Status |
 |---|---|
-| Feature 1 — AEO Content Scorer (`POST /api/aeo/analyze`) | ✅ Implemented (Checks A, B, C + tests) |
-| Feature 2 — Query Fan-Out Engine (`POST /api/fanout/generate`) | ✅ Implemented (LLM + gap analysis + tests) |
+| Feature 1 — AEO Content Scorer (`POST /api/aeo/analyze`) | ✅ Implemented (Checks A, B, C, D, E, F, G + tests) |
+| Feature 2 — Query Fan-Out Engine (`POST /api/fanout/generate`) | ✅ Implemented (v1 gap analysis + v2 intent clustering) |
+| Phase B.1 — Rewrite assistance (`POST /api/rewrite/*`) | ✅ Implemented (heading auto-fix + LLM direct-answer rewrites with Check A back-validation) |
+| Phase B.2 — Schema-gen + bulk rewrite (`POST /api/rewrite/schema_gen`, `/bulk`) | ✅ Implemented (intent-aware JSON-LD with Check E back-check + unified diff envelope) |
+| Phase B.3 — Internal-linking suggestions (`POST /api/linking/suggest`) | ✅ Implemented (sitemap fetch + MiniLM page index + top-K retrieval per missing sub-query/cluster) |
+| Phase C.1 — Site ingest + dashboard (`POST /api/site/ingest`, `/{id}/audit`, `GET /{id}/dashboard`, `GET /api/site/dashboard/{id}`) | ✅ Implemented (DB models + Alembic 0002 + ingest/audit/dashboard services + HTML dashboard) |
+| Phase C.2 — Re-audit scheduling + GEO v0 (`POST /api/geo/{site}/queries`, `/queries/{id}/probe`, `/queries/{id}/history`) | ✅ Implemented (weekly site_runner with score-drop alerts + GEO probe Protocol + citation history aggregator + Alembic 0003) |
+| Phase D — Org + role-based access + audit comments + Slack/Linear notifiers | ✅ Implemented (`Org`/`OrgMember`/`AuditComment` models + Alembic 0004 + `require_role` dep + Slack/Linear notifiers w/ FakeNotifier) |
+| Phase E — REST API keys + outbound webhooks + CI plugin + `/api/v1` | ✅ Implemented (`ApiKey`/`Webhook`/`WebhookDelivery` models + Alembic 0005 + Bearer auth w/ scoped permissions + HMAC-signed dispatch + `cli/aegis_ci.py` GitHub-Action script) |
+| Phase F — Multi-language NLP + locale-aware readability + localized fan-out + GEO locale | ✅ Implemented (script + stop-word language detector + per-locale spaCy loader + Fernandez-Huerta/LIX/Gulpease/syllable-density routing + locale-threaded fan-out and GEO probe prompts) |
 | `PROMPT_LOG.md` | ✅ Real iteration log against `gpt-5` (v0 ablation 0/5 → v1 11/11) |
+
+### Score weighting (`/api/aeo/analyze`)
+
+The aggregate `aeo_score` is `round(sum(check.score) / sum(check.max_score) * 100)`. Every check carries equal weight (`max_score = 20`). With seven checks active the denominator is 140; adding or removing a check rebalances automatically — no per-check weights to maintain.
+
+| Check | ID | Max | Internal axes |
+|---|---|---|---|
+| A — Direct Answer Detection | `direct_answer` | 20 | word count, declarative, hedging |
+| B — H-tag Hierarchy | `htag_hierarchy` | 20 | violation count over (missing/multiple/pre-H1/skipped) |
+| C — Snippet Readability | `readability` | 20 | Flesch-Kincaid grade vs `[7.0, 9.0]` |
+| D — Entity Coverage | `entity_coverage` | 20 | density per 1k words (10 pts) + distinct entity types (10 pts) |
+| E — Schema.org Markup | `schema_markup` | 20 | presence (8) + high-value type (14) + populated required-properties (20) |
+| F — Citation Density | `citations` | 20 | authoritative-root link count gated by per-1k density (.gov/.edu/whitelist) |
+| G — Freshness Signals | `freshness` | 20 | age of `dateModified` (preferred) or `datePublished` from JSON-LD / meta / `<time>` |
+
+### Fan-Out v2 — Intent clustering
+
+`POST /api/fanout/generate` now returns an `intent_clusters` array alongside the per-query `sub_queries`. Each cluster contains the indices of the sub-queries it groups, a `dominant_type`, a human label (the cluster's representative query), and — when content is provided — `covered_count` / `coverage_percent` so a UI can flag "you're missing this whole intent" gaps. The clustering is single-link agglomerative on MiniLM cosine similarity (threshold 0.55); the roadmap's UMAP+HDBSCAN upgrade path is preserved for future site-level corpora where N is large enough to justify it.
+
+### Phase B.1 — Rewrite assistance
+
+Two new endpoints turn the audit signals into actionable fixes:
+
+| Endpoint | Cost | What it does |
+|---|---|---|
+| `POST /api/rewrite/direct_answer` | LLM (Pro path) | When Check A fails, emits 3 declarative ≤60-word rewrites in three styles (`definition_first` / `cause_effect` / `outcome_first`). Each variant is back-validated against `DirectAnswerCheck`; if any variant fails the check that motivated the rewrite, the whole batch retries (up to 2 retries) so we never hand back a "fix" that doesn't fix. Set `target_query` to thread the user's keyword through the prompt. |
+| `POST /api/rewrite/headings` | Free (deterministic) | Resolves all four H-tag violations without an LLM: promotes the first heading to H1 if missing, demotes extra H1s, demotes pre-H1 headings to H2, and collapses skipped levels one step at a time. Returns the original tag list, the fixed tag list, an `operations` log of what changed and why, and a copy-pasteable `<h1>…</h1>` HTML snippet. |
+| `POST /api/rewrite/schema_gen` | LLM (Pro path) | Detects the document's intent (FAQPage / HowTo / Article — heuristic on heading shape) and asks the LLM for a populated JSON-LD block keyed off the document's own sentences. Back-validated against `SchemaMarkupCheck`'s "populated_types" rule — never returns a stub that would still score `14` on Check E. Returns the parsed object **and** a paste-ready `<script type="application/ld+json">` snippet. |
+| `POST /api/rewrite/bulk` | LLM (Pro path) | One-shot orchestrator. Runs all three Phase B rewriters against a single document, skips any whose corresponding check already passes, and returns: per-fix `status` envelope (`applied` / `skipped` / `failed` / `disabled`), AEO score before + after-estimate (the orchestrator re-runs the seven checks against a synthetic `ParsedContent` that incorporates every applied fix), a unified `markdown_diff`, and an injectable `html_diff`. PDF export is the natural Sprint-6 follow-up; we deliberately skipped pulling in a PDF rendering dependency until billing is wired. |
+| `POST /api/linking/suggest` | Free (deterministic, embeddings only) | Internal-linking suggestions. Caller supplies the missing sub-queries plus *one* of `sitemap_url` (we'll fetch + parse it, recursing through `<sitemapindex>`) or a pre-fetched `pages` array. The service builds an in-memory MiniLM-embedded `PageIndex` (capped by `max_pages`), runs top-K cosine retrieval per sub-query, excludes `source_url` from candidates, and returns suggestions with `anchor_text` (page title preferred, sub-query fallback), `similarity_score`, and `matched_cluster_id` when the sub-queries came from a Fan-Out v2 cluster. Per-page fetch failures are surfaced under `failed_urls` instead of poisoning the batch. |
+| `POST /api/site/ingest` | Free | Persist a `Site` row + `SitePage` rows for every URL in a sitemap (or a pre-supplied list). Idempotent — re-ingesting the same root URL leaves existing pages untouched. |
+| `POST /api/site/{id}/audit` | Free (deterministic checks only) | Run the seven AEO checks against the oldest-audited (or never-audited) pages of a site, append an append-only `SitePageAudit` row per page, and refresh the page's denormalised `last_*` rollup columns. Per-page fetch/parse failures land in `failed` instead of aborting the batch. |
+| `GET /api/site/{id}/dashboard` | Free | JSON envelope: page totals, mean/median score, band distribution, 7-day score trend (per-day mean + audit count), top-10 worst pages by score, top-10 most-frequent missing fan-out types. Pure rollup math lives in `app/services/site/dashboard.py`, separable from the SQL adapters so the helpers are unit-testable without Postgres. |
+| `GET /api/site/dashboard/{id}` | Free | HTML rendering of the same dashboard via Jinja (`templates/dashboard/site.html`). Tailwind CDN, no JS — paste-ready link for a customer to drop into a sales call. |
+| `POST /api/geo/{site_id}/queries` | Free | Register a target query whose answer-engine citation rate the site wants tracked. Idempotent on `(site, query, locale)`. |
+| `GET /api/geo/{site_id}/queries` | Free | List tracked queries for a site. |
+| `POST /api/geo/queries/{query_id}/probe` | LLM (Pro path) | Run a probe — hits TTL cache (default 7 days) on `(query, provider, model)`; otherwise asks `OpenAIChatProbe` what URLs it would cite, persists a `GEOProbeRecord`, refreshes `last_*` rollup. Query params: `force_refresh=true` to bypass cache, `ttl_days=N` to override the window. Response carries `from_cache` + `cached_age_seconds`. |
+| `GET /api/geo/queries/{query_id}/history` | Free | Citation-rate history: per-week bucket plus overall-window rollup over the last 30 days. Powers the trend chart. |
+
+The autopilot CLI grew a sibling for the weekly job: `python -m app.autopilot site_reaudit` (wired through `app/autopilot/site_runner.py::run_weekly_reaudit`) re-runs the seven checks across every `Site`'s pages, compares each page's two most recent `SitePageAudit` rows, and emits a `ScoreDropAlert` for any page that lost ≥10 points week-over-week. Hooks for routing alerts out land in Phase D via `SlackNotifier` / `LinearNotifier` (below) — both honour the `Notifier` Protocol so the site runner can fan out without knowing which destinations are wired.
+
+**Critical Decision #1 — GEO probe TTL cache.** GEO probes are LLM-priced, and the roadmap target is >90% gross margin. `probe_and_record` now does a recency lookup against `GEOProbeRecord` keyed on `(geo_query_id, provider, model_name)` with a default 7-day window before spending an LLM call; on a hit, the existing row is returned with `from_cache=True` and `cached_age_seconds=<int>`. `POST /api/geo/queries/{id}/probe` accepts `force_refresh=true` (bypasses cache, always spends) and `ttl_days` (override the window for ad-hoc admin runs). Schema-free — we reuse the append-only history table the dashboard already reads, so the citation-rate-over-time chart stays accurate while the hot path gets cheap. See `app/services/geo/citation_tracker.py::probe_and_record` + `_lookup_cached_probe` for the implementation, and `tests/test_geo_probe_cache.py` for the 8 cases that pin the cold/hit/expired/force-refresh/model-key/ttl=0 branches.
+
+**Critical Decision #4 — Site → Org migration.** Multi-tenancy moves *additively*: `Site` carries both `user_id` (legacy, pre-Phase-D) and `org_id` (new, Phase-D-onwards), both nullable. Alembic 0006 adds the column + an `ix_site_org_id` index + a partial unique index `uq_site_org_root ON site (org_id, root_url) WHERE org_id IS NOT NULL` so the same org can't double-ingest a root URL while leaving legacy `user_id`-keyed rows untouched. `ingest_site(org_id=…)` honours an org-first lookup; legacy callers (no org_id) match user-owned rows that still have `org_id IS NULL`; org-scoped callers never silently absorb a legacy user row — they create a fresh row instead, so an admin "promote this user's sites into our org" backfill stays a deliberate operation. `comments.org_id_for_audit` now projects `Site.org_id`, with `user_id_for_audit` kept as the legacy helper for routes that still gate on a user owner. Subscription FK re-pivot stays on the autopilot track's timeline — no destructive churn here.
+
+**Critical Decision #5 — Pro-feature gating audit.**
+
+| Endpoint | LLM cost? | Current gate | Verdict |
+|---|---|---|---|
+| `POST /api/aeo/analyze` | No | IP rate limit (3/day, in-memory) | OK — free-tier hook, no LLM spend |
+| `POST /api/fanout/generate` | Yes | `Depends(require_pro_or_byok_or_quota)` | OK — Pro / BYOK / 3-free quota |
+| `POST /api/rewrite/direct_answer` | Yes | none | **GAP** — needs `require_pro_or_byok_or_quota` |
+| `POST /api/rewrite/headings` | No | none | OK — deterministic, free |
+| `POST /api/rewrite/schema_gen` | Yes | none | **GAP** — needs `require_pro_or_byok_or_quota` |
+| `POST /api/rewrite/bulk` | Yes (cascades) | none | **GAP** — needs `require_pro_or_byok_or_quota` |
+| `POST /api/linking/suggest` | No (embeddings) | none | OK — embedder is local |
+| `POST /api/site/ingest` | No | none | **GAP** — should require `OrgRole.editor` once Site→Org migration finishes routing through `require_role` |
+| `POST /api/site/{id}/audit` | No (deterministic checks) | none | **GAP** — same as above; also large-batch DoS risk |
+| `GET /api/site/{id}/dashboard` | No | none | **GAP** — should require `OrgRole.viewer` |
+| `POST /api/geo/{site_id}/queries` | No | none | **GAP** — should require `OrgRole.editor` |
+| `POST /api/geo/queries/{id}/probe` | Yes | TTL cache (7d) only | **GAP** — needs `require_pro_or_byok_or_quota`; cache softens the cost gap but doesn't replace billing intent |
+| `GET /api/geo/queries/{id}/history` | No | none | **GAP** — should require `OrgRole.viewer` |
+| `POST /api/orgs` | No | `Depends(get_current_user)` | OK — any signed-in user can create an org |
+| `POST /api/orgs/{id}/members` | No | `require_role(owner)` | OK |
+| `GET /api/orgs/{id}/members` | No | `require_role(viewer)` | OK |
+| `POST /api/orgs/{id}/keys` | No | `require_role(owner)` | OK |
+| `POST /api/orgs/{id}/webhooks` | No | `require_role(owner)` | OK |
+| `POST /api/audits/{id}/comments` | No | `get_current_user` | Partial — should also enforce org membership via `org_id_for_audit` projection |
+| `POST /api/v1/audit` | No | `require_scope("audit:write")` | OK — Bearer-key path |
+| `POST /webhooks/stripe`, `/webhooks/razorpay` | No | signature verification | OK — processor webhooks |
+| `GET /pricing`, `/signup`, `/login`, `/account` | No | n/a (public marketing) | OK |
+
+Gating gaps are **flagged but not wired in this pass** — the parallel autopilot track owns `Subscription` + `BYOKValidation` + `gating.require_pro_or_byok_or_quota`; coordinating the role + paywall stack onto the seven gap endpoints is one focused PR rather than scattered through Phase A–F. Backlog item: route `/api/rewrite/*` + `/api/site/*` + `/api/geo/*` through `require_pro_or_byok_or_quota` (LLM endpoints) and `require_role` (read/write endpoints) once the Subscription↔Org FK lands. The TTL cache from Decision #1 already absorbs most of the GEO-probe LLM cost in the meantime, so the operational risk of leaving `/api/geo/queries/{id}/probe` ungated is "free LLM tokens to anonymous callers but with a 7-day repeat-call dampener" — bounded, not unlimited.
+
+### Phase D — Org / collaboration / integrations
+
+The roadmap's Critical Decision #4 ("migrate `User` → `Org` in place vs ship clean v2") settled toward *additive*: the existing autopilot `Subscription`/`Site` rows keep their `user_id` FKs, and `Org` lives alongside `User`. The bridge is `OrgMember(org_id, user_id, role)`, three-tier RBAC enforced via `app.services.orgs.require_role(min_role)` (FastAPI dependency factory). Endpoints:
+
+| Endpoint | Min role | What it does |
+|---|---|---|
+| `POST /api/orgs` | _auth_ | Create an org; calling user becomes the lone `owner`. Slug is validated (kebab-case) or generated from the name + a nonce. |
+| `GET /api/orgs/{id}` | viewer | Fetch the org. |
+| `POST /api/orgs/{id}/members` | owner | Add an existing `User` with `owner` / `editor` / `viewer`. Idempotent (re-invite updates role). |
+| `GET /api/orgs/{id}/members` | viewer | List members. |
+| `DELETE /api/orgs/{id}/members/{user_id}` | owner | Remove. Refuses to delete the last `owner` (409). |
+| `POST /api/audits/{audit_id}/comments` | _auth_ | Inline note on a `SitePageAudit`, optionally scoped to `check_id`. |
+| `GET /api/audits/{audit_id}/comments` | _auth_ | List comments, optional `include_resolved=false` filter. |
+| `POST /api/comments/{id}/resolve` | _auth_ | Toggle `resolved`. |
+| `DELETE /api/comments/{id}` | _auth_ | Delete. |
+
+`Notifier` Protocol (`app/integrations/notifier.py`) is the contract for outbound integrations; concrete implementations live in `app/integrations/slack.py` (incoming-webhook POST, returns `delivered=False` when the webhook env var is unset) and `app/integrations/linear.py` (GraphQL `issueCreate`, returns `delivered=False` when API key / team ID is unset). Both inject `httpx.AsyncClient` for test stubbing; `FakeNotifier` records every call in-memory for unit tests.
+
+### Phase E — REST API keys + webhooks + CI plugin
+
+| Endpoint | Min role | Notes |
+|---|---|---|
+| `POST /api/orgs/{org_id}/keys` | owner | Mint a key. Token format: `aegis_ak_<prefix6>_<secret32>`. Only the sha256 hash is stored; the plaintext is shown ONCE in the response. |
+| `GET /api/orgs/{org_id}/keys` | viewer | List keys (no plaintext; prefix + last_used_at + revoked_at only). |
+| `DELETE /api/orgs/{org_id}/keys/{api_key_id}` | owner | Revoke. |
+| `POST /api/orgs/{org_id}/webhooks` | owner | Subscribe to events; `secret` (HMAC signing key) returned ONCE. |
+| `GET /api/orgs/{org_id}/webhooks` | viewer | List. |
+| `DELETE /api/orgs/{org_id}/webhooks/{webhook_id}` | owner | Unsubscribe. |
+| `GET /api/orgs/{org_id}/webhooks/supported-events` | viewer | Static list of allowed event names. |
+| `POST /api/v1/audit` | scope `audit:write` | Bearer-token-gated audit endpoint mirroring `/api/aeo/analyze` for external CI/CMS callers. |
+| `GET /api/v1/ping` | scope `audit:read` | Cheap key/scope sanity check, no audit cost. |
+
+API-key auth flow:
+
+1. Owner mints a key with explicit scopes (`audit:write`, `linking:read`, etc.; `*` and `resource:*` wildcards supported).
+2. Caller sends `Authorization: Bearer aegis_ak_…` on every request.
+3. `app/services/api_keys.resolve_api_key` parses the prefix, looks up the row, verifies the hash via constant-time compare, refreshes `last_used_at`. Rejected paths (missing/malformed/invalid/revoked) all return the same `401` envelope to avoid leaking key-existence side channels.
+4. `require_scope("…")` factory layers on top so each route can declare its required scope independently.
+
+Webhook signing is HMAC-SHA256 over the raw JSON body, sent in `X-Aegis-Signature: sha256=<hex>`; the secret is shown ONCE at creation. `app/services/webhooks_out.dispatch_event(...)` fans an envelope (`{id, event, occurred_at, data}`) out to every enabled subscriber, persists a `WebhookDelivery` row per attempt, and returns one `DispatchResult` per receiver — failures are captured but never abort the fan-out. Retry policy is intentionally external (a scheduled runner can re-call `dispatch_event` with `attempt+1` on rows where `delivered=False` and `attempt < MAX`), so the audit endpoint's latency stays bound only by its own work, not by customer webhook receivers.
+
+`cli/aegis_ci.py` is the GitHub-Action-friendly CLI: `python -m cli.aegis_ci --threshold 70 <url1> <url2>` posts each target through `/api/v1/audit` (or `--paste path/to/file.html` to send local content) and exits non-zero if any aeo_score falls below `--threshold`. Distinct exit codes for usage (`2`), auth (`3`), network (`4`), and below-threshold (`1`) so CI runners can branch on the failure mode.
+
+### Phase F — Multi-language / localisation
+
+| Locale | Code | Readability metric | spaCy fallback |
+|---|---|---|---|
+| English | `en` | Flesch-Kincaid grade (target 7.0–9.0) | `en_core_web_lg` |
+| Spanish | `es` | Fernandez-Huerta (60–70 ideal, higher = simpler) | `es_core_news_lg` → `xx_ent_wiki_sm` → `spacy.blank("es") + sentencizer` |
+| French | `fr` | Crawford (Kandel-Moles proxy) | `fr_core_news_lg` |
+| German | `de` | Wiener Sachtextformel / Flesch-tuned | `de_core_news_lg` |
+| Italian | `it` | Gulpease | `it_core_news_lg` |
+| Portuguese | `pt` | Fernandez-Huerta | `pt_core_news_lg` |
+| Dutch | `nl` | LIX | `nl_core_news_lg` |
+| Swedish / Danish / Norwegian | `sv`/`da`/`no` | LIX | `…_core_news_lg` |
+| Hindi / Tamil / Telugu / Kannada / Bengali / Malayalam | `hi`/`ta`/`te`/`kn`/`bn`/`ml` | syllable density (vowel-mark heuristic; target 1.4–2.0 syllables/word) | `xx_ent_wiki_sm` → `spacy.blank(code) + sentencizer` |
+
+Language detection (`app/services/i18n/lang_detect.py`) is a script-range + stop-word heuristic — Devanagari/Tamil/etc. Unicode blocks route directly to their ISO-639-1 code; Latin-script content is graded by curated 15-word stop-word sets per language (accent-stripped, case-folded). The detector is exposed as a `Detector` Protocol so a `langdetect`-backed implementation can be dropped in later without touching callers.
+
+spaCy loader (`app/services/nlp.get_nlp_for_locale`) tries the per-locale full model first, falls back to `xx_ent_wiki_sm`, then to `spacy.blank(code)` plus a `sentencizer` pipe so `doc.sents` keeps working. The English `get_nlp()` singleton is unchanged.
+
+Fan-out v1 prompts: `POST /api/fanout/generate` now accepts `target_locale`; when set, an explicit "every `query` MUST be written in <language> (ISO 639-1 `<code>`)" clause is appended to the system prompt. GEO probes carry the locale through to `OpenAIChatProbe.probe(target_query, locale=…)` so the LLM is told to prefer regional / native-language primary sources.
 
 ## Setup & Run
 
@@ -62,6 +206,11 @@ Coverage:
 - `tests/test_direct_answer.py` — Check A, all four scoring tiers (20/12/8/0)
 - `tests/test_htag_hierarchy.py` — Check B, all violation rules + scoring tiers
 - `tests/test_readability.py` — Check C, scoring band table (parametrized) + integration tests with `textstat` mocked for FK determinism
+- `tests/test_entity_coverage.py` — Check D, density/diversity score bands, KB-hook contract, dedupe + min-word edge cases
+- `tests/test_schema_markup.py` — Check E, JSON-LD + microdata extraction, `@graph` unwrap, multi-type arrays, broken-block recovery, populated-property scoring
+- `tests/test_citations.py` — Check F, authoritative classification (whitelist + TLD suffix), boundary-safe `.gov` matching, density/count score bands
+- `tests/test_freshness.py` — Check G, age bands (6/12/24mo+), source priority (JSON-LD → meta → time), `@graph` unwrap, body-year drift, future-date guard
+- `tests/test_fanout_v2.py` — Single-link union-find correctness (incl. chain through intermediate), real-embedding clustering of semantically similar queries, coverage stats wiring, label truncation
 - `tests/test_content_parser.py` — Boilerplate stripping, plain-text branching, error handling
 
 The check tests import the check classes directly (not via the API) so each check is independently exercised. Tests do not hit the network.
@@ -135,7 +284,7 @@ curl -s -X POST http://localhost:8000/api/fanout/generate \
 `content_parser.parse()` returns a frozen `ParsedContent` dataclass with everything any check might need (`first_paragraph`, `h_tags`, `body_text`, `soup`). Each check consumes only the fields it needs. Adding a Check D is a one-file addition — register it in `app/services/aeo_checks/__init__.py::default_checks()` and write its tests.
 
 ### 2. spaCy model: `en_core_web_lg`
-The assignment marks `en_core_web_lg` as preferred over `en_core_web_sm`. Feature 1 only uses the dependency parser (Check A's declarative detection), but `lg`'s word vectors will likely be useful for Feature 2's gap analysis if I keep this model loaded. Loaded lazily via `app/services/nlp.py::get_nlp()` with `disable=["ner"]` to skip the NER component we don't use.
+The assignment marks `en_core_web_lg` as preferred over `en_core_web_sm`. Feature 1 uses the dependency parser (Check A's declarative detection) and the NER component (Check D's entity extraction); `lg`'s word vectors also back Feature 2's gap analysis. Loaded lazily via `app/services/nlp.py::get_nlp()` with the full pipeline enabled.
 
 ### 3. `passed = (score == max_score)`
 The example response in the spec shows `score: 8 → passed: false`, so partial credit is *not* a pass. A check "passes" only when it scores the full 20. Cleaner binary semantics than `score > 0`.
@@ -266,11 +415,55 @@ app/
     ├── llm_client.py                # LLMClient Protocol + OpenAIClient (F2)
     ├── fanout_engine.py             # Prompt + retry loop + orchestration (F2)
     ├── gap_analyzer.py              # Sentence chunking + cosine + gap_summary (F2)
+    ├── fanout_v2.py                 # Fan-Out v2 — single-link clustering on MiniLM cosine
+    ├── rewrite/
+    │   ├── __init__.py
+    │   ├── headings.py              # B.1 deterministic heading auto-fix (promote/demote/collapse)
+    │   ├── direct_answer.py         # B.1 LLM rewrites with Check A back-validation
+    │   ├── schema_gen.py            # B.2 intent detection + LLM JSON-LD with Check E back-check
+    │   └── bulk.py                  # B.2 orchestrator producing markdown/HTML diff + after-score estimate
+    ├── linking/
+    │   ├── __init__.py
+    │   ├── sitemap_fetcher.py       # B.3 sitemap.xml + <sitemapindex> recursive walk
+    │   ├── page_index.py            # B.3 MiniLM in-memory page index with top-K retrieval
+    │   └── suggest.py               # B.3 sub-query/cluster → top-K link suggestions
+    ├── site/
+    │   ├── __init__.py
+    │   ├── ingest.py                # C.1 Site/SitePage persistence (idempotent upsert)
+    │   ├── audit.py                 # C.1 run AEO checks on each SitePage, append history
+    │   └── dashboard.py             # C.1 pure rollup math (summary, trend, worst, missing)
+    ├── geo/
+    │   ├── __init__.py
+    │   ├── probe.py                 # C.2 GEOProbe Protocol + OpenAIChatProbe + URL extraction (+ F locale)
+    │   └── citation_tracker.py      # C.2 probe orchestration, persistence, weekly rate aggregation
+    ├── i18n/
+    │   ├── __init__.py
+    │   ├── locale.py                # F locale registry + readability metric routing
+    │   ├── lang_detect.py           # F script + stop-word language detector
+    │   └── readability_metrics.py   # F per-locale metric computation + scoring
+    ├── orgs.py                      # D org CRUD + require_role dep + slug helpers
+    ├── comments.py                  # D audit comments (add/list/resolve/delete)
+    ├── api_keys.py                  # E REST API keys (mint/hash/verify/scope) + Bearer dep
+    ├── webhooks_out.py              # E outbound webhook signing + dispatch
     └── aeo_checks/
+
+app/integrations/                    # D outbound notifier integrations
+├── __init__.py
+├── notifier.py                      # Notifier Protocol + FakeNotifier test double
+├── slack.py                         # incoming-webhook POST
+└── linear.py                        # GraphQL issueCreate
+
+cli/                                 # E external CLI plugins
+├── __init__.py
+└── aegis_ci.py                      # GitHub-Action-friendly audit gate (httpx-only)
         ├── base.py                  # BaseCheck abstract class
         ├── direct_answer.py         # Check A
         ├── htag_hierarchy.py        # Check B
         ├── readability.py           # Check C
+        ├── entity_coverage.py       # Check D (spaCy NER + density/diversity, KB hook for Wikidata)
+        ├── schema_markup.py         # Check E (JSON-LD + microdata type detection, populated-property scoring)
+        ├── citations.py             # Check F (link extraction + authoritative-root classification)
+        ├── freshness.py             # Check G (dateModified/datePublished from JSON-LD/meta/<time>, age bands)
         └── __init__.py              # default_checks() registry
 
 tests/
@@ -278,6 +471,34 @@ tests/
 ├── test_direct_answer.py            # Check A — 6 cases
 ├── test_htag_hierarchy.py           # Check B — 7 cases
 ├── test_readability.py              # Check C — 17 parametrized + 4 integration
+├── test_entity_coverage.py          # Check D — 7 cases (score bands, dedupe, KB hook)
+├── test_schema_markup.py            # Check E — 9 cases (JSON-LD shapes, microdata, broken-block recovery)
+├── test_citations.py                # Check F — 12 cases (classification, score bands, boundary-safe TLD)
+├── test_freshness.py                # Check G — 12 cases (age bands, source priority, future-date guard)
+├── test_fanout_v2.py                # Fan-Out v2 — 8 cases (union-find, real-embedding clustering)
+├── test_rewrite_headings.py         # B.1 heading auto-fix — 10 cases
+├── test_rewrite_direct_answer.py    # B.1 LLM rewrite — 8 cases (back-validation, retries, schema)
+├── test_rewrite_schema_gen.py       # B.2 schema-gen — 9 cases (intent detect, back-check, retries)
+├── test_rewrite_bulk.py             # B.2 bulk orchestrator — 6 cases (apply-all, skip-passing, disabled flags, failed LLM, escaping)
+├── test_linking_sitemap.py          # B.3 sitemap fetcher — 8 cases (urlset, sitemapindex, broken-child recovery, cycle guard)
+├── test_linking_page_index.py       # B.3 page index — 7 cases (empty, blank drop, top-K ranking, embedding-text join)
+├── test_linking_suggest.py          # B.3 suggestion engine — 8 cases (source dedupe, min-similarity, cluster-skip, URL normalisation)
+├── test_site_dashboard.py           # C.1 rollup math — 9 cases (summary, trend, worst, missing)
+├── test_site_ingest.py              # C.1 ingest helpers — 7 cases (URL canonicalisation, dedupe)
+├── test_site_runner.py              # C.2 score-drop alert math — 7 cases (threshold bands)
+├── test_geo_probe.py                # C.2 probe + JSON/regex URL extraction — 8 cases
+├── test_geo_citation_tracker.py     # C.2 host matching + weekly rate aggregation — 8 cases
+├── test_geo_probe_cache.py          # Decision #1 TTL cache — 8 cases (cold/hit/expired/force-refresh/model-key/ttl=0)
+├── test_site_org_bridge.py          # Decision #4 Site→Org bridge — 7 cases (precedence, backfill guards, anonymous orphan)
+├── test_orgs_service.py             # D role rank + slug validation — 8 cases
+├── test_integrations_notifier.py    # D Slack + Linear + FakeNotifier — 9 cases
+├── test_api_keys.py                 # E mint/hash/parse/scope — 11 cases
+├── test_webhooks_out.py             # E HMAC signing + filter — 11 cases
+├── test_cli_aegis_ci.py             # E CLI exit codes + payload shape — 10 cases
+├── test_i18n_lang_detect.py         # F heuristic detector — 10 cases (Latin stop-words + Indic scripts + fallbacks)
+├── test_i18n_readability_metrics.py # F per-locale metric compute + score banding — 9 cases
+├── test_readability_locale.py       # F Check C locale dispatch — 8 cases (forced + auto-detect)
+├── test_fanout_locale.py            # F fan-out + GEO probe locale plumbing — 9 cases
 ├── test_content_parser.py           # Parser correctness — 5 cases
 └── test_fanout_parsing.py           # F2 — 28 cases across 4 groups
 
@@ -289,9 +510,9 @@ tools/
 
 ```bash
 $ pytest --tb=no -q
-......................................... 67 passed in ~17s
+............................................................................................................................. 143 passed in ~15s
 ```
 
-- 36 Feature 1 tests (direct_answer, htag_hierarchy, readability, content_parser)
-- 28 Feature 2 tests (extract_json, schema, retry loop, gap analyzer, endpoint)
+- 99 Feature 1 tests (direct_answer, htag_hierarchy, readability, entity_coverage, schema_markup, citations, freshness, content_parser)
+- 44 Feature 2 tests (extract_json, schema, retry loop, gap analyzer, intent clustering, endpoint)
 - All run without network access; LLM is mocked via `FakeLLMClient` in conftest.

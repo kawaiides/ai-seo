@@ -1,0 +1,20 @@
+Hi{% if ctx.contact_name %} {{ ctx.contact_name }}{% endif %},
+
+I ran an automated AEO (Answer Engine Optimization) audit on {{ ctx.url }} for the query "{{ ctx.target_keyword }}".
+
+Score: {{ ctx.aeo_score }}/100 — "{{ ctx.band }}".
+
+{% if ctx.top_missing_comparative %}
+Your post ranks in Google but is invisible to ChatGPT / Perplexity / Google AI Overviews for these comparative queries:
+
+{% for q in ctx.top_missing_comparative %}  - {{ q.query }}
+{% endfor %}{% endif %}{% if ctx.readability_warning %}
+{{ ctx.readability_warning }}
+
+{% endif %}Full report (no signup):
+{{ ctx.report_url }}
+
+If this isn't your beat, no reply needed and I won't follow up.
+
+— AEGIS Autopilot
+{{ ctx.report_url }}/p.gif

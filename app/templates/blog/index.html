@@ -1,0 +1,61 @@
+{% extends "_base.html" %}
+{% block title %}AEGIS Blog — AEO, GEO & AI Search Optimization Guides{% endblock %}
+{% block description %}In-depth guides on Answer Engine Optimization (AEO), Generative Engine Optimization (GEO), and how to get cited by ChatGPT, Perplexity, Claude, and Google AI Overviews.{% endblock %}
+
+{% block head_extra %}
+<link rel="canonical" href="{{ site_url }}/blog" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="AEGIS Blog — AEO & AI Search Optimization Guides" />
+<meta property="og:description" content="In-depth guides on Answer Engine Optimization, query fan-out, schema for AI engines, and getting cited by ChatGPT, Perplexity, and Google AI Overviews." />
+<meta property="og:url" content="{{ site_url }}/blog" />
+<meta name="twitter:card" content="summary_large_image" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "AEGIS Autopilot Blog",
+  "url": "{{ site_url }}/blog",
+  "description": "Guides on Answer Engine Optimization, Generative Engine Optimization, and AI search citation strategy.",
+  "publisher": {
+    "@type": "Organization",
+    "name": "AEGIS Autopilot",
+    "url": "{{ site_url }}"
+  }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<section class="max-w-5xl mx-auto px-6 pt-12 pb-20">
+  <header class="text-center mb-12 fadeup">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-slate-300 mb-5">
+      <span class="w-1.5 h-1.5 rounded-full bg-violet-400 shadow-[0_0_8px_#a78bfa]"></span>
+      <span>{{ articles|length }} guides · updated weekly</span>
+    </div>
+    <h1 class="text-5xl font-bold tracking-tight mb-3">The AEGIS <span class="gradient-text">field guide</span></h1>
+    <p class="text-slate-400 max-w-2xl mx-auto">Everything we know about getting cited by ChatGPT, Perplexity, Claude, and Google AI Overviews — distilled from running thousands of AEO audits.</p>
+  </header>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for a in articles %}
+    <a href="/blog/{{ a.slug }}" class="gradient-border rounded-2xl p-6 fadeup hover:-translate-y-1 transition-transform group block" style="animation-delay:.{{ loop.index0 * 4 }}s">
+      <div class="text-3xl mb-3 group-hover:scale-110 transition-transform inline-block">{{ a.hero_emoji or '📝' }}</div>
+      <div class="text-[10px] uppercase tracking-[0.2em] text-violet-300 mb-2 font-mono">{{ a.category }}</div>
+      <h2 class="text-lg font-bold text-white leading-tight mb-2 group-hover:gradient-text transition">{{ a.title }}</h2>
+      <p class="text-sm text-slate-400 leading-relaxed mb-4">{{ a.excerpt }}</p>
+      <div class="flex items-center justify-between text-xs text-slate-500 font-mono">
+        <span>{{ a.published }}</span>
+        <span>{{ a.reading_minutes }} min read</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <div class="mt-16 gradient-border rounded-2xl p-8 text-center fadeup">
+    <div class="text-3xl mb-3">⚡</div>
+    <h2 class="text-2xl font-bold mb-2">Stop reading. <span class="gradient-text">Start scoring.</span></h2>
+    <p class="text-slate-400 mb-5 max-w-md mx-auto text-sm">Run your top page through the AEGIS scanner — 0–100 AEO score in under 30 seconds.</p>
+    <a href="/" class="btn-primary px-6 py-3 rounded-xl font-semibold inline-block">Scan a page →</a>
+  </div>
+</section>
+{% endblock %}

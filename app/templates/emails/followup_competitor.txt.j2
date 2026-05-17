@@ -1,0 +1,15 @@
+Hi{% if ctx.contact_name %} {{ ctx.contact_name }}{% endif %},
+
+Following up on the audit I sent for {{ ctx.url }}.
+
+{% if ctx.top_missing_comparative %}One comparative query you're invisible for in ChatGPT / Perplexity:
+
+  "{{ ctx.top_missing_comparative[0].query }}"
+
+That's a high-intent buyer query — they're looking to make a decision and your post isn't in the answer.
+
+{% endif %}Full report still live:
+{{ ctx.report_url }}
+
+— AEGIS Autopilot
+{{ ctx.report_url }}/p.gif

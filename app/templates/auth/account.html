@@ -1,0 +1,110 @@
+{% extends "_base.html" %}
+{% block title %}Account — AEGIS Autopilot{% endblock %}
+{% block description %}Your AEGIS Autopilot account dashboard.{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<section class="max-w-4xl mx-auto px-6 pt-12 pb-24">
+  <header class="mb-8 fadeup">
+    <div class="text-xs uppercase tracking-[0.22em] text-slate-500 mb-2">Account</div>
+    <h1 class="text-4xl font-bold tracking-tight">Welcome back, <span class="gradient-text">{{ (current_user.email or '').split('@')[0] }}</span></h1>
+    <p class="text-slate-400 mt-2 text-sm">{{ current_user.email }}</p>
+  </header>
+
+  <!-- Plan summary -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+    <div class="gradient-border rounded-2xl p-5 fadeup" style="animation-delay:.04s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Plan</div>
+      <div class="flex items-center gap-2">
+        {% if active_sub %}
+          <span class="text-lg font-bold gradient-text">Pro</span>
+          <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30">active</span>
+        {% else %}
+          <span class="text-lg font-bold text-white">Free</span>
+          <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-500/15 text-slate-300 ring-1 ring-slate-500/30">3 scans / day</span>
+        {% endif %}
+      </div>
+      {% if active_sub %}
+        <div class="text-xs text-slate-500 mt-2 font-mono">renews {{ active_sub.current_period_end.strftime('%Y-%m-%d') if active_sub.current_period_end else '—' }}</div>
+      {% else %}
+        <a href="/pricing" class="inline-block mt-3 text-xs text-violet-300 hover:text-white font-semibold">Upgrade to Pro →</a>
+      {% endif %}
+    </div>
+
+    <div class="glass rounded-2xl p-5 fadeup" style="animation-delay:.08s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Account created</div>
+      <div class="text-lg font-bold text-white">{{ current_user.created_at.strftime('%b %d, %Y') }}</div>
+      <div class="text-xs text-slate-500 mt-2 font-mono">id · {{ current_user.id|string|truncate(13, True, '…') }}</div>
+    </div>
+
+    <div class="glass rounded-2xl p-5 fadeup" style="animation-delay:.12s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Region</div>
+      <div class="text-lg font-bold text-white">{{ current_user.ip_country or '—' }}</div>
+      <div class="text-xs text-slate-500 mt-2">Billing region inferred from signup IP</div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="gradient-border rounded-2xl p-7 mb-6 fadeup" style="animation-delay:.16s">
+    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-4">Quick actions</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <a href="/" class="glass rounded-xl p-4 hover:bg-white/[.06] transition group">
+        <div class="text-2xl mb-2 group-hover:scale-110 transition-transform">⚡</div>
+        <div class="font-semibold text-white text-sm">New scan</div>
+        <div class="text-xs text-slate-400 mt-0.5">Run AEO analysis on a URL or draft</div>
+      </a>
+      <a href="/pricing" class="glass rounded-xl p-4 hover:bg-white/[.06] transition group">
+        <div class="text-2xl mb-2 group-hover:scale-110 transition-transform">💎</div>
+        <div class="font-semibold text-white text-sm">{% if active_sub %}Manage plan{% else %}Upgrade to Pro{% endif %}</div>
+        <div class="text-xs text-slate-400 mt-0.5">Unlimited scans, rewrites, API access</div>
+      </a>
+      <form action="/api/auth/logout" method="post">
+        <button class="w-full text-left glass rounded-xl p-4 hover:bg-white/[.06] transition group">
+          <div class="text-2xl mb-2 group-hover:scale-110 transition-transform">🚪</div>
+          <div class="font-semibold text-white text-sm">Log out</div>
+          <div class="text-xs text-slate-400 mt-0.5">End this session</div>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Subscriptions -->
+  <div class="gradient-border rounded-2xl p-7 fadeup" style="animation-delay:.2s">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Billing history</h2>
+      <a href="/pricing" class="text-xs text-violet-300 hover:text-white font-semibold">View plans →</a>
+    </div>
+    {% if subscriptions %}
+      <div class="overflow-x-auto rounded-lg border border-white/5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-white/[.02] text-left text-[10px] uppercase tracking-wider text-slate-500">
+              <th class="py-2.5 px-3 font-semibold">Processor</th>
+              <th class="py-2.5 px-3 font-semibold">External ID</th>
+              <th class="py-2.5 px-3 font-semibold">Status</th>
+              <th class="py-2.5 px-3 font-semibold">Period ends</th>
+              <th class="py-2.5 px-3 font-semibold">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in subscriptions %}
+            <tr class="border-t border-white/5">
+              <td class="py-2.5 px-3 capitalize">{{ s.processor.value }}</td>
+              <td class="py-2.5 px-3 font-mono text-xs text-slate-400">{{ s.external_id|truncate(28, True, '…') }}</td>
+              <td class="py-2.5 px-3">
+                {% set sc = 'emerald' if s.status.value == 'active' else 'amber' if s.status.value == 'past_due' else 'rose' %}
+                <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-{{ sc }}-500/15 text-{{ sc }}-300 ring-1 ring-{{ sc }}-500/30">{{ s.status.value }}</span>
+              </td>
+              <td class="py-2.5 px-3 text-slate-400 font-mono text-xs">{{ s.current_period_end.strftime('%Y-%m-%d') if s.current_period_end else '—' }}</td>
+              <td class="py-2.5 px-3 text-slate-500 font-mono text-xs">{{ s.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-slate-500 italic">No subscriptions yet. <a href="/pricing" class="text-violet-300 hover:text-white not-italic">See pricing →</a></p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

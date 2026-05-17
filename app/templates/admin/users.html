@@ -1,0 +1,54 @@
+{% extends "_base.html" %}
+{% block title %}Admin · Users — AEGIS Autopilot{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<section class="max-w-6xl mx-auto px-6 pt-12 pb-24">
+  <header class="mb-6 fadeup">
+    <div class="flex items-center gap-3 text-xs text-slate-500 mb-2">
+      <a href="/admin?token={{ token }}" class="hover:text-white">← Admin</a>
+      <span>/</span>
+      <span class="text-slate-300">Users</span>
+    </div>
+    <h1 class="text-3xl font-bold tracking-tight">Recent <span class="gradient-text">users</span></h1>
+    <p class="text-slate-400 text-sm mt-1">Latest {{ users|length }} accounts (max {{ limit }}). Sorted newest first.</p>
+  </header>
+
+  <div class="gradient-border rounded-2xl p-1 fadeup" style="animation-delay:.05s">
+    <div class="overflow-x-auto rounded-xl">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-white/[.02] text-left text-[10px] uppercase tracking-wider text-slate-500">
+            <th class="py-3 px-4 font-semibold">Email</th>
+            <th class="py-3 px-4 font-semibold">Plan</th>
+            <th class="py-3 px-4 font-semibold">Region</th>
+            <th class="py-3 px-4 font-semibold">Created</th>
+            <th class="py-3 px-4 font-semibold">User ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr class="border-t border-white/5 hover:bg-white/[.02] transition">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-2.5">
+                <span class="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-[10px] font-bold text-white">{{ (u.email or '?')[:1]|upper }}</span>
+                <span class="text-white">{{ u.email or '(anon)' }}</span>
+              </div>
+            </td>
+            <td class="py-3 px-4">
+              {% set pc = 'emerald' if u.plan.value != 'free' else 'slate' %}
+              <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-{{ pc }}-500/15 text-{{ pc }}-300 ring-1 ring-{{ pc }}-500/30 font-mono">{{ u.plan.value }}</span>
+            </td>
+            <td class="py-3 px-4 text-slate-300">{{ u.ip_country or '—' }}</td>
+            <td class="py-3 px-4 text-slate-400 font-mono text-xs">{{ u.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td class="py-3 px-4 text-slate-500 font-mono text-xs">{{ u.id|string|truncate(13, True, '…') }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="py-8 px-4 text-center text-slate-500 italic">No users yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

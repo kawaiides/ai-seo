@@ -1,0 +1,13 @@
+Hi{% if ctx.contact_name %} {{ ctx.contact_name }}{% endif %},
+
+Noticed you looked at the audit. The score (currently {{ ctx.aeo_score }}/100) is fixable — Pro plan auto-generates rewrites for every failed check and re-validates that the rewrite actually passes:
+
+  $49/mo USD via Stripe
+  ₹999/mo INR via UPI Autopay (no card auth pain)
+
+Upgrade: {{ ctx.checkout_url }}
+
+Or stay free with BYOK: paste your OpenAI key into the tool for unlimited scans.
+
+— AEGIS Autopilot
+{{ ctx.report_url }}/p.gif

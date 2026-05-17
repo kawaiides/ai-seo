@@ -1,0 +1,41 @@
+{% extends "_base.html" %}
+{% block title %}Welcome to Pro — AEGIS Autopilot{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<section class="max-w-xl mx-auto px-6 pt-16 pb-24 text-center">
+  <div class="fadeup">
+    <div class="relative inline-block mb-6">
+      <div class="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 via-violet-500 to-fuchsia-500 flex items-center justify-center text-white text-3xl shadow-2xl shadow-violet-500/50">✓</div>
+      <div class="absolute -inset-3 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 opacity-30 blur-2xl -z-10"></div>
+    </div>
+    <h1 class="text-4xl font-bold tracking-tight mb-3">You're <span class="gradient-text">Pro</span>.</h1>
+    <p class="text-slate-400 mb-8">Unlimited scans, AI rewrites, scheduled audits, and the API are unlocked on your account.</p>
+  </div>
+
+  {% if subscription %}
+  <div class="gradient-border rounded-2xl p-6 text-left mb-6 fadeup" style="animation-delay:.08s">
+    <div class="text-xs uppercase tracking-[0.2em] text-slate-500 mb-3">Subscription details</div>
+    <dl class="space-y-2 text-sm">
+      <div class="flex justify-between"><dt class="text-slate-400">Processor</dt><dd class="text-white capitalize">{{ subscription.processor.value }}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-400">Reference</dt><dd class="text-white font-mono text-xs">{{ subscription.external_id }}</dd></div>
+      <div class="flex justify-between"><dt class="text-slate-400">Status</dt><dd><span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30">{{ subscription.status.value }}</span></dd></div>
+      {% if subscription.current_period_end %}
+      <div class="flex justify-between"><dt class="text-slate-400">Renews</dt><dd class="text-white">{{ subscription.current_period_end.strftime('%B %d, %Y') }}</dd></div>
+      {% endif %}
+    </dl>
+  </div>
+  {% endif %}
+
+  {% if demo_mode %}
+  <div class="rounded-lg glass border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-amber-200 mb-6 text-left fadeup" style="animation-delay:.12s">
+    <span class="font-semibold">Demo subscription.</span> No real charge was processed. To wire production billing, set <code class="font-mono text-amber-300">STRIPE_SECRET_KEY</code> (USD) or <code class="font-mono text-amber-300">RAZORPAY_KEY_SECRET</code> (INR) and redeploy.
+  </div>
+  {% endif %}
+
+  <div class="flex flex-col sm:flex-row gap-3 justify-center fadeup" style="animation-delay:.16s">
+    <a href="/" class="btn-primary px-5 py-3 rounded-xl font-semibold">Run your first Pro scan →</a>
+    <a href="/account" class="btn-ghost px-5 py-3 rounded-xl font-semibold">Go to account</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "_base.html" %}
+{% block title %}Log in — AEGIS Autopilot{% endblock %}
+{% block description %}Log in to your AEGIS Autopilot account.{% endblock %}
+{% block robots %}noindex, follow{% endblock %}
+
+{% block content %}
+<section class="max-w-md mx-auto px-6 pt-14 pb-24">
+  <div class="text-center mb-8 fadeup">
+    <h1 class="text-4xl font-bold tracking-tight mb-2">Welcome back to <span class="gradient-text">AEGIS</span></h1>
+    <p class="text-slate-400 text-sm">Enter your email — we'll restore your session.</p>
+  </div>
+
+  <form action="/api/auth/login" method="post" class="gradient-border rounded-2xl p-7 fadeup space-y-4" style="animation-delay:.08s">
+    {% if error %}
+      <div class="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-sm text-rose-200">{{ error }}</div>
+    {% endif %}
+    <input type="hidden" name="next" value="{{ next_url }}" />
+    <div>
+      <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2" for="email">Email</label>
+      <input id="email" name="email" type="email" required autocomplete="email"
+             placeholder="you@company.com"
+             class="w-full rounded-lg px-4 py-3 text-base" />
+    </div>
+    <button type="submit" class="btn-primary w-full py-3 rounded-xl text-base">Log in →</button>
+  </form>
+
+  <p class="text-center text-sm text-slate-400 mt-6">
+    No account yet? <a href="/signup" class="text-violet-300 hover:text-white font-medium">Sign up free</a>
+  </p>
+</section>
+{% endblock %}

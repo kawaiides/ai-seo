@@ -1,0 +1,38 @@
+# Copy to terraform.tfvars and fill in real values.
+# terraform.tfvars is gitignored — never commit secrets.
+
+aws_region  = "us-east-1"
+project     = "aegis"
+environment = "prod"
+
+# Your /32 — find with `curl ifconfig.me`. Never 0.0.0.0/0.
+ssh_allowed_cidr = "203.0.113.42/32"
+
+# Existing EC2 key pair. Create in EC2 console -> Key Pairs -> Create.
+ec2_key_pair_name = "aegis-prod"
+
+# Apex domain. Terraform creates the Route 53 zone; copy the name servers
+# it outputs into your registrar.
+domain_name        = "yourdomain.com"
+create_dns_records = true
+
+# ---- Secrets ----
+openai_api_key = "sk-..."
+openai_model   = "gpt-4o-mini"
+
+# Stripe live (leave blank for staging).
+stripe_secret_key     = "sk_live_..."
+stripe_webhook_secret = "whsec_..."
+stripe_price_id       = "price_..."
+
+# ---- GitHub Actions OIDC (optional) ----
+# Format: "repo:owner/name:ref:refs/heads/<branch>" (one entry per branch/env).
+# Leave empty to skip OIDC role creation.
+github_actions_role_subjects = [
+  "repo:youruser/aegis:ref:refs/heads/main",
+]
+
+# ---- One-off overrides ----
+extra_env = {
+  # AEGIS_FANOUT_CACHE = "1"
+}

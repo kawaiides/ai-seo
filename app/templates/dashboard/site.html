@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AEGIS — Site dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+<main class="max-w-5xl mx-auto px-4 py-10">
+    <header class="mb-8">
+        <p class="text-xs uppercase tracking-wide text-slate-500">Site dashboard</p>
+        <h1 class="text-3xl font-bold tracking-tight">{{ data.root_url }}</h1>
+        <p class="text-slate-500 mt-1">
+            {{ data.pages_audited }}/{{ data.pages_total }} pages audited
+            {% if data.last_audited_at %}· last audit {{ data.last_audited_at[:19] }}{% endif %}
+        </p>
+    </header>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <p class="text-xs uppercase text-slate-500">Mean AEO score</p>
+            <p class="mt-2 text-4xl font-bold tracking-tight">
+                {% if data.mean_score is not none %}{{ '%.1f'|format(data.mean_score) }}{% else %}—{% endif %}
+            </p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <p class="text-xs uppercase text-slate-500">Median AEO score</p>
+            <p class="mt-2 text-4xl font-bold tracking-tight">
+                {% if data.median_score is not none %}{{ '%.1f'|format(data.median_score) }}{% else %}—{% endif %}
+            </p>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <p class="text-xs uppercase text-slate-500">Bands</p>
+            <ul class="mt-2 text-sm space-y-1">
+                {% for band, n in data.band_counts.items() %}
+                <li class="flex justify-between"><span>{{ band }}</span><span class="font-mono">{{ n }}</span></li>
+                {% else %}
+                <li class="text-slate-400">No audits yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+
+    <section class="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-semibold text-slate-700 mb-3">7-day score trend</h2>
+        <table class="w-full text-sm">
+            <thead class="text-left text-slate-500 text-xs uppercase">
+                <tr><th class="py-2">Day</th><th class="py-2">Mean score</th><th class="py-2 text-right">Audits</th></tr>
+            </thead>
+            <tbody>
+            {% for t in data.trend_7d %}
+                <tr class="border-t border-slate-100">
+                    <td class="py-2 font-mono text-xs">{{ t.day }}</td>
+                    <td class="py-2">{% if t.audits %}{{ '%.1f'|format(t.mean_score) }}{% else %}—{% endif %}</td>
+                    <td class="py-2 text-right font-mono">{{ t.audits }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-semibold text-slate-700 mb-3">Top 10 worst-scoring pages</h2>
+        <table class="w-full text-sm">
+            <thead class="text-left text-slate-500 text-xs uppercase">
+                <tr>
+                    <th class="py-2">URL</th>
+                    <th class="py-2 text-right">Score</th>
+                    <th class="py-2">Band</th>
+                    <th class="py-2">Failed checks</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for p in data.worst_pages %}
+                <tr class="border-t border-slate-100">
+                    <td class="py-2 truncate max-w-xs"><a class="underline text-slate-700" href="{{ p.url }}" target="_blank">{{ p.title or p.url }}</a></td>
+                    <td class="py-2 text-right font-mono">{{ p.score }}</td>
+                    <td class="py-2 text-xs">{{ p.band }}</td>
+                    <td class="py-2 text-xs text-slate-500">{{ p.failed_checks|join(', ') }}</td>
+                </tr>
+            {% else %}
+                <tr><td class="py-2 text-slate-400" colspan="4">No audited pages yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 class="text-lg font-semibold text-slate-700 mb-3">Top 10 missing query clusters</h2>
+        <ul class="text-sm space-y-1">
+            {% for c in data.missing_clusters %}
+                <li class="flex justify-between border-t border-slate-100 py-2">
+                    <span class="font-medium">{{ c.type }}</span>
+                    <span class="font-mono text-slate-500">{{ c.pages_missing }} pages</span>
+                </li>
+            {% else %}
+                <li class="py-2 text-slate-400">Run a Fan-Out audit on the worst pages to populate this list.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</main>
+</body>
+</html>

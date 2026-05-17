@@ -1,0 +1,145 @@
+{% extends "_base.html" %}
+{% block title %}Pricing — AEGIS Autopilot{% endblock %}
+{% block description %}AEGIS Pro: unlimited AEO scans, AI rewrites that re-pass every failed check, scheduled site-wide audits, GEO citation tracking, and API access. USD and INR plans.{% endblock %}
+
+{% block content %}
+<section class="max-w-5xl mx-auto px-6 pt-14 pb-24">
+  <header class="text-center mb-12 fadeup">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-slate-300 mb-5">
+      <span class="w-1.5 h-1.5 rounded-full bg-violet-400 shadow-[0_0_8px_#a78bfa]"></span>
+      <span>Pricing · No contracts · Cancel anytime</span>
+    </div>
+    <h1 class="text-5xl font-bold tracking-tight mb-3">Ship content<br><span class="gradient-text">AI engines actually cite</span></h1>
+    <p class="text-slate-400 max-w-xl mx-auto">Start free with 3 daily scans. Upgrade to Pro for unlimited scans, AI-generated rewrites, and site-wide audits.</p>
+
+    {% if demo_mode %}
+    <div class="mt-5 max-w-md mx-auto rounded-lg glass border border-amber-500/30 bg-amber-500/5 px-4 py-2.5 text-xs text-amber-200">
+      <span class="font-semibold">Demo mode.</span> No Stripe / Razorpay keys configured. Checkout creates a mock subscription so you can exercise the full flow.
+    </div>
+    {% endif %}
+
+    <div class="mt-6 inline-flex items-center gap-1 p-1 rounded-full glass text-sm" role="tablist" aria-label="Billing cycle">
+      <button id="cycle-monthly" type="button" class="px-4 py-1.5 rounded-full font-medium transition bg-gradient-to-r from-violet-500/30 to-fuchsia-500/20 text-white">Monthly</button>
+      <button id="cycle-annual" type="button" class="px-4 py-1.5 rounded-full font-medium transition text-slate-400 hover:text-white">Annual <span class="text-[10px] text-emerald-300 ml-1">save ~17%</span></button>
+    </div>
+  </header>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+    <!-- Free -->
+    <div class="glass rounded-2xl p-7 fadeup" style="animation-delay:.05s">
+      <div class="text-xs uppercase tracking-[0.2em] text-slate-500 mb-2">Free</div>
+      <div class="flex items-baseline gap-1 mb-1">
+        <span class="text-5xl font-bold text-white">$0</span>
+        <span class="text-slate-500 text-sm">/ forever</span>
+      </div>
+      <p class="text-sm text-slate-400 mb-5">For solo creators kicking the tires.</p>
+      <ul class="space-y-2 text-sm text-slate-300 mb-7">
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> 3 AEO scans / day</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> 6 structural checks</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> Query fan-out (10–15 sub-queries)</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> Public report URL</li>
+        <li class="flex gap-2"><span class="text-slate-600">·</span> <span class="text-slate-500">No rewrites</span></li>
+        <li class="flex gap-2"><span class="text-slate-600">·</span> <span class="text-slate-500">No site audits</span></li>
+      </ul>
+      <a href="/signup" class="btn-ghost w-full block text-center py-2.5 rounded-xl font-semibold">Start free</a>
+    </div>
+
+    <!-- Pro USD -->
+    {% set p = plans[0] %}
+    <div class="gradient-border rounded-2xl p-7 relative fadeup" style="animation-delay:.1s">
+      <div class="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] uppercase tracking-[0.2em] font-bold px-3 py-1 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-500/40">Most popular</div>
+      <div class="text-xs uppercase tracking-[0.2em] text-violet-300 mb-2">{{ p.label }}</div>
+      <div class="flex items-baseline gap-1 mb-1">
+        <span class="text-5xl font-bold gradient-text" data-monthly="{{ p.symbol }}{{ p.price_monthly }}" data-annual="{{ p.symbol }}{{ (p.price_annual / 12)|round|int }}">{{ p.symbol }}{{ p.price_monthly }}</span>
+        <span class="text-slate-500 text-sm cycle-suffix">/ month</span>
+      </div>
+      <p class="text-sm text-slate-400 mb-5">{{ p.tagline }} · Billed in {{ p.currency }}.</p>
+      <ul class="space-y-2 text-sm text-slate-200 mb-7">
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> <span><strong>Unlimited</strong> AEO scans</span></li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> AI rewrites that re-pass every failed check</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> Scheduled site-wide audits</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> GEO citation tracking</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> JSON-LD schema generation</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> Internal linking suggestions</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> REST API + webhook events</li>
+      </ul>
+      <form action="/api/billing/checkout" method="post" class="space-y-2">
+        <input type="hidden" name="plan" value="{{ p.id }}" />
+        <input type="hidden" name="cycle" value="monthly" class="cycle-input" />
+        <button type="submit" class="btn-primary w-full py-2.5 rounded-xl">Subscribe with Stripe →</button>
+      </form>
+    </div>
+
+    <!-- Pro INR -->
+    {% set p = plans[1] %}
+    <div class="glass rounded-2xl p-7 fadeup" style="animation-delay:.15s">
+      <div class="text-xs uppercase tracking-[0.2em] text-slate-500 mb-2">{{ p.label }}</div>
+      <div class="flex items-baseline gap-1 mb-1">
+        <span class="text-5xl font-bold text-white" data-monthly="{{ p.symbol }}{{ p.price_monthly }}" data-annual="{{ p.symbol }}{{ (p.price_annual / 12)|round|int }}">{{ p.symbol }}{{ p.price_monthly }}</span>
+        <span class="text-slate-500 text-sm cycle-suffix">/ month</span>
+      </div>
+      <p class="text-sm text-slate-400 mb-5">{{ p.tagline }}.</p>
+      <ul class="space-y-2 text-sm text-slate-300 mb-7">
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> Everything in Pro</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> UPI / NetBanking / cards via Razorpay</li>
+        <li class="flex gap-2"><span class="text-emerald-400">✓</span> GST invoice with each charge</li>
+      </ul>
+      <form action="/api/billing/checkout" method="post" class="space-y-2">
+        <input type="hidden" name="plan" value="{{ p.id }}" />
+        <input type="hidden" name="cycle" value="monthly" class="cycle-input" />
+        <button type="submit" class="btn-ghost w-full py-2.5 rounded-xl font-semibold">Subscribe with Razorpay →</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Enterprise -->
+  <div class="mt-8 gradient-border rounded-2xl p-7 sm:flex sm:items-center sm:justify-between gap-6 fadeup" style="animation-delay:.2s">
+    <div>
+      <div class="text-xs uppercase tracking-[0.2em] text-violet-300 mb-1">Enterprise</div>
+      <h3 class="text-2xl font-bold text-white">Agencies & multi-domain teams</h3>
+      <p class="text-sm text-slate-400 mt-1">Volume API limits, SSO, per-domain segmentation, audit log export, dedicated support.</p>
+    </div>
+    <a href="mailto:hello@aegis-autopilot.com" class="btn-ghost px-5 py-2.5 rounded-xl font-semibold whitespace-nowrap inline-block mt-4 sm:mt-0">Talk to sales →</a>
+  </div>
+
+  <!-- Trust strip -->
+  <div class="mt-12 text-center text-xs text-slate-500 fadeup" style="animation-delay:.25s">
+    <div class="flex flex-wrap items-center justify-center gap-5">
+      <span class="flex items-center gap-2"><span class="text-emerald-400">●</span> Cancel anytime</span>
+      <span class="flex items-center gap-2"><span class="text-violet-400">●</span> 14-day refund window</span>
+      <span class="flex items-center gap-2"><span class="text-fuchsia-400">●</span> No content stored after scan</span>
+      <span class="flex items-center gap-2"><span class="text-cyan-400">●</span> SOC 2 roadmap Q3</span>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const monthlyBtn = document.getElementById("cycle-monthly");
+    const annualBtn = document.getElementById("cycle-annual");
+    const onCycle = (cycle) => {
+      monthlyBtn.className = "px-4 py-1.5 rounded-full font-medium transition " + (cycle === "monthly"
+        ? "bg-gradient-to-r from-violet-500/30 to-fuchsia-500/20 text-white"
+        : "text-slate-400 hover:text-white");
+      annualBtn.innerHTML = "Annual " + (cycle === "annual"
+        ? '<span class="text-[10px] text-emerald-300 ml-1">save ~17%</span>'
+        : '<span class="text-[10px] text-emerald-300 ml-1">save ~17%</span>');
+      annualBtn.className = "px-4 py-1.5 rounded-full font-medium transition " + (cycle === "annual"
+        ? "bg-gradient-to-r from-violet-500/30 to-fuchsia-500/20 text-white"
+        : "text-slate-400 hover:text-white");
+      document.querySelectorAll("[data-monthly][data-annual]").forEach((el) => {
+        el.textContent = cycle === "annual" ? el.dataset.annual : el.dataset.monthly;
+      });
+      document.querySelectorAll(".cycle-suffix").forEach((el) => {
+        el.textContent = cycle === "annual" ? "/ month, billed yearly" : "/ month";
+      });
+      document.querySelectorAll(".cycle-input").forEach((el) => { el.value = cycle; });
+    };
+    monthlyBtn.addEventListener("click", () => onCycle("monthly"));
+    annualBtn.addEventListener("click", () => onCycle("annual"));
+  })();
+</script>
+{% endblock %}

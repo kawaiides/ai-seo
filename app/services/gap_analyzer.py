@@ -17,6 +17,7 @@ Why MiniLM + normalized embeddings + matmul:
 from __future__ import annotations
 
 from collections import Counter
+from typing import Any
 
 from app.models.schemas import (
     GapSummary,
@@ -72,10 +73,15 @@ def chunk_content(
 def score_subqueries(
     sub_queries: list[LLMSubQuery],
     content: str,
+    *,
+    query_vecs: Any | None = None,
 ) -> list[tuple[bool, float]]:
     """Compute (covered, similarity_score) for each sub-query against content.
 
-    Single batched encode + one matmul, max-reduced over chunks.
+    Single batched encode + one matmul, max-reduced over chunks. The
+    optional `query_vecs` argument lets a caller pass a pre-computed
+    (N, dim) array of normalised query embeddings — used by Fan-Out v2
+    to share the encode across clustering and gap analysis.
     """
     chunks = chunk_content(content)
 
@@ -83,11 +89,12 @@ def score_subqueries(
     chunk_vecs = embedder.encode(
         chunks, normalize_embeddings=True, convert_to_numpy=True
     )
-    query_vecs = embedder.encode(
-        [sq.query for sq in sub_queries],
-        normalize_embeddings=True,
-        convert_to_numpy=True,
-    )
+    if query_vecs is None:
+        query_vecs = embedder.encode(
+            [sq.query for sq in sub_queries],
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+        )
     # (N_queries, dim) @ (dim, N_chunks) → (N_queries, N_chunks)
     sims = query_vecs @ chunk_vecs.T
     max_sims = sims.max(axis=1)

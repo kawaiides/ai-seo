@@ -20,6 +20,11 @@ if _ROOT not in sys.path:
 # never use the live key; they use FakeLLMClient.
 load_dotenv(override=False)
 
+# Disable the public-page rate limiter for the test suite. TestClient
+# reuses the IP "testclient", so the daily counter would accumulate across
+# tests and trip 429s in unrelated assertions.
+os.environ.setdefault("AEGIS_DISABLE_RATE_LIMIT", "1")
+
 
 @pytest.fixture(scope="session")
 def nlp():

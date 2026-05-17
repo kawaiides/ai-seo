@@ -1,0 +1,43 @@
+<!doctype html>
+<html><body style="font:15px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;max-width:560px;margin:0 auto;padding:24px;">
+<p>Hi{% if ctx.contact_name %} {{ ctx.contact_name }}{% endif %},</p>
+
+<p>I ran an automated AEO (Answer Engine Optimization) audit on
+<a href="{{ ctx.url }}">{{ ctx.url }}</a> for the query
+<strong>"{{ ctx.target_keyword }}"</strong>.</p>
+
+<p style="font-size:18px;margin:18px 0;">
+  Score: <strong>{{ ctx.aeo_score }}/100</strong> —
+  <span style="padding:2px 8px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:13px;">{{ ctx.band }}</span>
+</p>
+
+{% if ctx.top_missing_comparative %}
+<p>Your post ranks in Google but is <strong>invisible to ChatGPT / Perplexity / Google AI Overviews</strong> for these comparative queries:</p>
+<ul style="padding-left:20px;color:#334155;">
+  {% for q in ctx.top_missing_comparative %}
+  <li style="margin:6px 0;">{{ q.query }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if ctx.readability_warning %}
+<p style="background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:10px 14px;color:#78350f;font-size:14px;">
+  {{ ctx.readability_warning }}
+</p>
+{% endif %}
+
+<p>
+  <a href="{{ ctx.report_url }}"
+     style="display:inline-block;padding:10px 18px;background:#0f172a;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+    View full report
+  </a>
+</p>
+
+<p style="color:#64748b;font-size:13px;">
+  If this isn't your beat, no reply needed and I won't follow up.
+</p>
+
+<p style="color:#94a3b8;font-size:12px;">— AEGIS Autopilot</p>
+
+<img src="{{ ctx.report_url }}/p.gif" width="1" height="1" alt="" style="display:block;border:0;">
+</body></html>

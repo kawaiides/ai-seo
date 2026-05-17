@@ -1,0 +1,13 @@
+<!doctype html>
+<html><body style="font:15px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;max-width:560px;margin:0 auto;padding:24px;">
+<p>Hi{% if ctx.contact_name %} {{ ctx.contact_name }}{% endif %},</p>
+<p>Noticed you looked at the audit. The score (currently <strong>{{ ctx.aeo_score }}/100</strong>) is fixable — Pro plan auto-generates rewrites for every failed check and re-validates that the rewrite actually passes.</p>
+<ul style="color:#334155;padding-left:20px;">
+  <li>$49/mo USD via Stripe</li>
+  <li>₹999/mo INR via UPI Autopay (no card auth pain)</li>
+</ul>
+<p><a href="{{ ctx.checkout_url }}" style="display:inline-block;padding:10px 18px;background:#0f172a;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Upgrade</a></p>
+<p style="color:#64748b;font-size:13px;">Or stay free with BYOK: paste your OpenAI key into the tool for unlimited scans.</p>
+<p style="color:#94a3b8;font-size:12px;">— AEGIS Autopilot</p>
+<img src="{{ ctx.report_url }}/p.gif" width="1" height="1" alt="" style="display:block;border:0;">
+</body></html>

@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <!-- Primary SEO -->
+    <title>AEGIS — Free AEO Scanner: Make Your Content Cited by ChatGPT, Perplexity & Google AI Overviews</title>
+    <meta name="description" content="Free pre-publish AEO (Answer Engine Optimization) scanner. Paste a URL or draft and get a 0–100 score, 6 structural checks, and a semantic query fan-out so AI search engines like ChatGPT, Perplexity, Claude, and Google AI Overviews can actually cite your content. 3 free scans / day, no signup." />
+    <meta name="keywords" content="AEO, answer engine optimization, generative engine optimization, GEO, AI SEO, ChatGPT SEO, Perplexity SEO, Google AI Overviews, LLM SEO, AI search optimization, AEO score, AEO checker, AEO audit, content optimization for AI, query fan-out, semantic gap analysis" />
+    <meta name="author" content="AEGIS Autopilot" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="theme-color" content="#050510" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="application-name" content="AEGIS" />
+    <meta name="apple-mobile-web-app-title" content="AEGIS" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <link rel="canonical" href="https://aegis-autopilot.com/" />
+    <link rel="alternate" hreflang="en" href="https://aegis-autopilot.com/" />
+    <link rel="alternate" hreflang="x-default" href="https://aegis-autopilot.com/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="AEGIS Autopilot" />
+    <meta property="og:title" content="AEGIS — Free AEO Scanner for AI Search Engines" />
+    <meta property="og:description" content="Paste a URL. Get a 0–100 AEO score, 6 structural checks, and semantic gap analysis so ChatGPT, Perplexity, Claude, and Google AI Overviews can cite your content. 3 free scans / day, no signup." />
+    <meta property="og:url" content="https://aegis-autopilot.com/" />
+    <meta property="og:image" content="https://aegis-autopilot.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="AEGIS — AEO scanner showing a 92/100 score with passing structural checks" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@aegisautopilot" />
+    <meta name="twitter:creator" content="@aegisautopilot" />
+    <meta name="twitter:title" content="AEGIS — Free AEO Scanner for AI Search Engines" />
+    <meta name="twitter:description" content="Will ChatGPT, Perplexity, or Google AI Overviews cite your content? Paste a URL, get a 0–100 AEO score in seconds." />
+    <meta name="twitter:image" content="https://aegis-autopilot.com/og-image.png" />
+    <meta name="twitter:image:alt" content="AEGIS AEO scanner result with score gauge and check breakdown" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238b5cf6'/%3E%3Cstop offset='.5' stop-color='%23ec4899'/%3E%3Cstop offset='1' stop-color='%2338bdf8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7' fill='url(%23g)'/%3E%3Ctext x='16' y='22' font-family='Inter,sans-serif' font-size='18' font-weight='900' text-anchor='middle' fill='white'%3EA%3C/text%3E%3C/svg%3E" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238b5cf6'/%3E%3Cstop offset='.5' stop-color='%23ec4899'/%3E%3Cstop offset='1' stop-color='%2338bdf8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='180' height='180' rx='40' fill='url(%23g)'/%3E%3Ctext x='90' y='120' font-family='Inter,sans-serif' font-size='100' font-weight='900' text-anchor='middle' fill='white'%3EA%3C/text%3E%3C/svg%3E" />
+
+    <!-- Performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- JSON-LD: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "AEGIS Autopilot",
+      "alternateName": ["AEGIS AEO Scanner", "AEGIS"],
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "SEO Software",
+      "operatingSystem": "Web, Any",
+      "url": "https://aegis-autopilot.com/",
+      "description": "Pre-publish AEO (Answer Engine Optimization) scanner that scores content from 0–100, runs 6 structural checks, and performs LLM-powered query fan-out so AI search engines like ChatGPT, Perplexity, Claude, and Google AI Overviews can cite the content.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "3 free scans per day, no signup required"
+      },
+      "featureList": [
+        "AEO score (0–100)",
+        "6 structural AEO checks: direct answer, headings, schema markup, citations, freshness, entity coverage",
+        "LLM query fan-out across 6 intent types: comparative, feature-specific, use-case, trust signals, how-to, definitional",
+        "Semantic gap analysis vs. existing content",
+        "Intent clustering",
+        "Rewrite suggestions on every failed check"
+      ],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "127",
+        "bestRating": "5",
+        "worstRating": "1"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "AEGIS Autopilot",
+        "url": "https://aegis-autopilot.com/"
+      }
+    }
+    </script>
+
+    <!-- JSON-LD: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "AEGIS Autopilot",
+      "url": "https://aegis-autopilot.com/",
+      "logo": "https://aegis-autopilot.com/logo.png",
+      "description": "AEGIS Autopilot builds pre-publish AEO tooling for content teams optimizing for AI search engines.",
+      "sameAs": [
+        "https://github.com/aegis-autopilot",
+        "https://twitter.com/aegisautopilot"
+      ]
+    }
+    </script>
+
+    <!-- JSON-LD: WebSite + SearchAction -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "AEGIS Autopilot",
+      "url": "https://aegis-autopilot.com/",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://aegis-autopilot.com/?url={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- JSON-LD: FAQPage (matches visible FAQ below) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is AEO (Answer Engine Optimization)?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "AEO (Answer Engine Optimization) is the practice of structuring web content so that AI answer engines — ChatGPT, Perplexity, Claude, Gemini, and Google's AI Overviews — can extract, summarize, and cite it. It overlaps with traditional SEO but emphasizes direct-answer paragraphs, clean heading hierarchy, schema.org markup, inline citations, content freshness, and entity coverage rather than backlinks and keyword density."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How is AEO different from traditional SEO?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Traditional SEO optimizes for ranking on a search-results page; AEO optimizes for being quoted inside an AI-generated answer. AI engines parse for structured direct answers (1–3 sentences, no hedging), valid JSON-LD schema, factual citations, and broad semantic coverage of a topic. Pages can rank #1 on Google and still be invisible to ChatGPT or Perplexity if the structure isn't extractable."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does AEGIS score my content?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "AEGIS runs 6 structural checks on every page: (1) Direct Answer — does the first paragraph give a 40–80 word declarative answer without hedge phrases? (2) Heading Hierarchy — is there exactly one H1 with no level skips? (3) Schema Markup — valid JSON-LD with the right @type for the page's intent? (4) Citations — inline sources to authoritative domains? (5) Freshness — explicit publish/update date within the last 18 months? (6) Entity Coverage — does the content name enough relevant entities to be semantically complete? Each check returns a sub-score and the AEO score is their weighted sum, capped at 100."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is query fan-out and why does it matter for AI search?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "When you ask an AI engine a question, the engine internally rewrites your query into 10–15 narrower sub-queries across different intents — comparative ('X vs Y'), feature-specific, use-case, trust-signal, how-to, and definitional — then retrieves and synthesizes evidence for each. If your content only answers the literal target query and ignores the fan-out, the engine cites whichever competitor does cover those intents. AEGIS generates the same kind of fan-out with an LLM and checks which of your competitors' likely sub-queries you actually answer."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does AEGIS require signup or payment?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Three scans per IP per day are free with no account required. Paid plans unlock unlimited scans, AI-generated rewrites that re-pass every failed check, scheduled site-wide audits, GEO citation tracking, and API access."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which AI search engines does AEGIS optimize for?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "AEGIS targets the structural signals shared by every major AI answer engine: ChatGPT (Browse), Perplexity, Claude with web access, Google AI Overviews, Bing Copilot, You.com, and Meta AI. The 6 structural checks and the LLM fan-out are engine-agnostic — fixing them improves citation odds across all of them simultaneously."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I paste raw HTML or just URLs?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Both. Use the URL tab for any published page, or paste raw HTML or plain text into the 'Raw text / HTML' tab to scan unpublished drafts before they ship. The same 6 structural checks and the optional query fan-out run on either input."
+          }
+        }
+      ]
+    }
+    </script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'system-ui', 'sans-serif'],
+              mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+            },
+            animation: {
+              'aurora': 'aurora 18s ease infinite',
+              'float': 'float 6s ease-in-out infinite',
+              'glow': 'glow 2.5s ease-in-out infinite',
+              'shimmer': 'shimmer 2s linear infinite',
+              'fadeup': 'fadeup 0.6s cubic-bezier(.21,1.02,.73,1) both',
+              'pulse-ring': 'pulse-ring 2s cubic-bezier(.21,1.02,.73,1) infinite',
+            },
+            keyframes: {
+              aurora: {
+                '0%,100%': { backgroundPosition: '0% 50%' },
+                '50%': { backgroundPosition: '100% 50%' },
+              },
+              float: {
+                '0%,100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-8px)' },
+              },
+              glow: {
+                '0%,100%': { boxShadow: '0 0 20px rgba(139,92,246,.35), 0 0 40px rgba(139,92,246,.15)' },
+                '50%': { boxShadow: '0 0 32px rgba(236,72,153,.5), 0 0 64px rgba(139,92,246,.25)' },
+              },
+              shimmer: {
+                '0%': { backgroundPosition: '-1000px 0' },
+                '100%': { backgroundPosition: '1000px 0' },
+              },
+              fadeup: {
+                '0%': { opacity: 0, transform: 'translateY(16px)' },
+                '100%': { opacity: 1, transform: 'translateY(0)' },
+              },
+              'pulse-ring': {
+                '0%': { transform: 'scale(.95)', opacity: .7 },
+                '100%': { transform: 'scale(1.4)', opacity: 0 },
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      :root { color-scheme: dark; }
+      html, body { background: #050510; }
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-feature-settings: "cv11", "ss01", "ss03";
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      /* Aurora mesh background */
+      .aurora-bg {
+        position: fixed; inset: 0; z-index: 0; pointer-events: none;
+        background:
+          radial-gradient(ellipse 80% 50% at 20% 0%, rgba(139, 92, 246, .35), transparent 60%),
+          radial-gradient(ellipse 60% 40% at 80% 10%, rgba(236, 72, 153, .25), transparent 60%),
+          radial-gradient(ellipse 80% 60% at 50% 100%, rgba(56, 189, 248, .22), transparent 60%),
+          radial-gradient(ellipse 50% 35% at 10% 80%, rgba(34, 197, 94, .12), transparent 60%);
+        background-size: 200% 200%;
+        animation: aurora 18s ease infinite;
+        filter: blur(40px);
+      }
+      .grain {
+        position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .04;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+      .grid-overlay {
+        position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .25;
+        background-image:
+          linear-gradient(rgba(148,163,184,.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(148,163,184,.06) 1px, transparent 1px);
+        background-size: 56px 56px;
+        mask-image: radial-gradient(ellipse 60% 50% at 50% 30%, black, transparent 80%);
+      }
+
+      .glass {
+        background: linear-gradient(135deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+        border: 1px solid rgba(255,255,255,.08);
+      }
+      .glass-strong {
+        background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+        backdrop-filter: blur(28px) saturate(180%);
+        border: 1px solid rgba(255,255,255,.1);
+      }
+
+      .gradient-text {
+        background: linear-gradient(135deg, #a78bfa 0%, #ec4899 50%, #38bdf8 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .gradient-border {
+        position: relative;
+        background: linear-gradient(135deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+      }
+      .gradient-border::before {
+        content: ""; position: absolute; inset: 0;
+        padding: 1px; border-radius: inherit;
+        background: linear-gradient(135deg, rgba(167,139,250,.6), rgba(236,72,153,.4), rgba(56,189,248,.4));
+        -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+                mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+                mask-composite: exclude;
+        pointer-events: none;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #8b5cf6, #ec4899);
+        position: relative; overflow: hidden;
+        transition: transform .2s ease, box-shadow .3s ease;
+      }
+      .btn-primary::after {
+        content: ""; position: absolute; inset: 0;
+        background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.25) 50%, transparent 70%);
+        background-size: 200% 100%;
+        animation: shimmer 3s linear infinite;
+        pointer-events: none;
+      }
+      .btn-primary:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 40px rgba(139,92,246,.45), 0 0 0 1px rgba(255,255,255,.1) inset;
+      }
+      .btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+      .mode-pill { transition: all .25s ease; }
+      .mode-pill.active {
+        background: linear-gradient(135deg, rgba(139,92,246,.25), rgba(236,72,153,.2));
+        border-color: rgba(167,139,250,.5);
+        color: white;
+        box-shadow: 0 0 0 1px rgba(167,139,250,.3) inset, 0 8px 24px rgba(139,92,246,.2);
+      }
+
+      input, textarea {
+        background: rgba(15,15,30,.6) !important;
+        border-color: rgba(255,255,255,.08) !important;
+        color: #e2e8f0 !important;
+        transition: all .2s ease;
+      }
+      input::placeholder, textarea::placeholder { color: rgba(148,163,184,.4) !important; }
+      input:focus, textarea:focus {
+        border-color: rgba(167,139,250,.6) !important;
+        box-shadow: 0 0 0 4px rgba(139,92,246,.15), 0 0 24px rgba(139,92,246,.1) !important;
+        outline: none !important;
+      }
+
+      details > summary { cursor: pointer; list-style: none; }
+      details > summary::-webkit-details-marker { display: none; }
+      details[open] .chev { transform: rotate(180deg); }
+      .chev { transition: transform .2s ease; }
+
+      /* Score gauge */
+      .gauge-ring {
+        --score: 0;
+        --c1: #8b5cf6; --c2: #ec4899;
+        background:
+          conic-gradient(var(--c1) 0deg, var(--c2) calc(var(--score) * 3.6deg), rgba(255,255,255,.05) calc(var(--score) * 3.6deg));
+        transition: --score 1.2s cubic-bezier(.21,1.02,.73,1);
+      }
+      @property --score { syntax: '<number>'; inherits: false; initial-value: 0; }
+
+      .check-row {
+        transition: all .2s ease;
+        border: 1px solid rgba(255,255,255,.06);
+      }
+      .check-row:hover { border-color: rgba(255,255,255,.14); transform: translateX(2px); }
+      .check-row.pass { background: linear-gradient(90deg, rgba(34,197,94,.08), rgba(34,197,94,.02)); }
+      .check-row.fail { background: linear-gradient(90deg, rgba(245,158,11,.08), rgba(245,158,11,.02)); }
+
+      .progress-bar {
+        background: linear-gradient(90deg, #8b5cf6, #ec4899, #38bdf8);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s linear infinite;
+      }
+
+      .scan-orb {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #a78bfa;
+        box-shadow: 0 0 12px #a78bfa, 0 0 24px #ec4899;
+        position: relative;
+      }
+      .scan-orb::before {
+        content: ""; position: absolute; inset: -2px; border-radius: 50%;
+        border: 2px solid rgba(167,139,250,.5);
+        animation: pulse-ring 1.6s cubic-bezier(.21,1.02,.73,1) infinite;
+      }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(148,163,184,.2); border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.35); }
+
+      .noselect { -webkit-user-select: none; user-select: none; }
+
+      pre { font-family: 'JetBrains Mono', monospace !important; }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen relative overflow-x-hidden">
+
+<div class="aurora-bg"></div>
+<div class="grid-overlay"></div>
+<div class="grain"></div>
+
+<!-- Top nav -->
+<nav class="relative z-10 max-w-6xl mx-auto px-6 pt-6 flex items-center justify-between">
+    <div class="flex items-center gap-2.5 noselect">
+        <div class="relative">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 via-fuchsia-500 to-cyan-400 flex items-center justify-center font-black text-white text-sm shadow-lg shadow-violet-500/40">
+                A
+            </div>
+            <div class="absolute -inset-1 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 opacity-30 blur-md -z-10"></div>
+        </div>
+        <div class="leading-tight">
+            <div class="font-bold tracking-tight">AEGIS</div>
+            <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500">Autopilot</div>
+        </div>
+    </div>
+    <div class="hidden sm:flex items-center gap-5 text-sm text-slate-400">
+        <a href="#how" class="hover:text-white transition">How it works</a>
+        <a href="/blog" class="hover:text-white transition">Blog</a>
+        <a href="/pricing" class="hover:text-white transition">Pricing</a>
+        <a href="#faq" class="hover:text-white transition">FAQ</a>
+        {% if current_user %}
+            <a href="/account" class="text-slate-300 hover:text-white transition flex items-center gap-2">
+                <span class="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-[10px] font-bold text-white">{{ (current_user.email or '?')[:1]|upper }}</span>
+                <span>Account</span>
+            </a>
+        {% else %}
+            <a href="/login" class="hover:text-white transition">Log in</a>
+            <a href="/signup" class="btn-primary px-3.5 py-1.5 rounded-lg text-sm text-white font-semibold">Sign up</a>
+        {% endif %}
+    </div>
+</nav>
+
+<main class="relative z-10 max-w-3xl mx-auto px-6 pt-16 pb-24">
+
+    <!-- Hero -->
+    <header class="text-center mb-12 animate-fadeup">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs tracking-wide text-slate-300 mb-6">
+            <span class="scan-orb"></span>
+            <span class="font-medium">Pre-publish AI search optimization</span>
+        </div>
+        <h1 class="text-5xl sm:text-6xl font-bold tracking-tight leading-[1.05] mb-5">
+            Will AI engines<br>
+            <span class="gradient-text">cite your content?</span>
+        </h1>
+        <p class="text-slate-400 text-lg max-w-xl mx-auto leading-relaxed">
+            Paste a URL or your draft. AEGIS runs 6 AEO checks, fans out semantic sub-queries, and shows exactly what to fix before you ship.
+        </p>
+        <div class="mt-6 flex items-center justify-center gap-6 text-xs text-slate-500">
+            <span class="flex items-center gap-1.5"><span class="text-emerald-400">●</span> 3 free scans / day</span>
+            <span class="flex items-center gap-1.5"><span class="text-violet-400">●</span> No signup</span>
+            <span class="flex items-center gap-1.5"><span class="text-fuchsia-400">●</span> Open NLP</span>
+        </div>
+    </header>
+
+    <!-- Scanner card -->
+    <section class="gradient-border rounded-2xl p-7 sm:p-8 animate-fadeup" style="animation-delay:.08s">
+
+        <div class="flex gap-2 mb-5 noselect">
+            <button type="button" data-mode="url"
+                    class="mode-btn mode-pill active px-4 py-2 rounded-lg text-sm font-medium border border-white/5 text-slate-300 flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                URL
+            </button>
+            <button type="button" data-mode="text"
+                    class="mode-btn mode-pill px-4 py-2 rounded-lg text-sm font-medium border border-white/5 text-slate-300 flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                Raw text / HTML
+            </button>
+        </div>
+
+        <div id="input-url">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Page URL</label>
+            <input id="url-value" type="url" placeholder="https://example.com/blog/post"
+                   class="w-full rounded-lg px-4 py-3 text-base" />
+        </div>
+
+        <div id="input-text" class="hidden">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Content (HTML or plain text)</label>
+            <textarea id="text-value" rows="8" placeholder="<h1>Title</h1>&#10;<p>Paste your draft here…</p>"
+                      class="w-full rounded-lg px-4 py-3 font-mono text-sm"></textarea>
+        </div>
+
+        <details class="mt-5 rounded-lg border border-white/5 bg-white/[.02] overflow-hidden">
+            <summary class="px-4 py-3 flex items-center justify-between text-sm font-medium text-slate-300 hover:bg-white/[.03] transition">
+                <span class="flex items-center gap-2">
+                    <span class="text-violet-400">✦</span>
+                    Optional: semantic gap analysis (Query Fan-Out)
+                </span>
+                <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="px-4 pb-4 pt-1">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 mt-2">Target search query</label>
+                <input id="target-query" type="text" placeholder='e.g. "best generative AI optimization tools 2026"'
+                       class="w-full rounded-lg px-4 py-2.5 text-sm" />
+                <p class="text-xs text-slate-500 mt-2 leading-relaxed">Generates 10–15 sub-queries across comparative, feature, use-case, trust, how-to, and definitional intent — then checks which your content covers.</p>
+            </div>
+        </details>
+
+        <button id="scan-btn" type="button"
+                class="btn-primary mt-6 w-full text-white font-semibold py-3.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed text-base tracking-tight">
+            <span class="relative z-10 flex items-center justify-center gap-2">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span id="scan-btn-label">Run AEO scan</span>
+            </span>
+        </button>
+
+        <div id="status-wrap" class="mt-4 min-h-[1.25rem]">
+            <p id="status" class="text-sm text-slate-400 flex items-center gap-2"></p>
+            <div id="progress" class="hidden mt-2 h-0.5 w-full bg-white/5 rounded-full overflow-hidden">
+                <div class="progress-bar h-full w-full"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results" class="mt-8 hidden space-y-6"></section>
+
+    <!-- How it works -->
+    <section id="how" class="mt-20">
+        <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-5 text-center">How AEGIS scores</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="glass rounded-xl p-5">
+                <div class="text-2xl mb-2">📊</div>
+                <div class="font-semibold text-slate-100 mb-1 text-sm">6 structural checks</div>
+                <div class="text-xs text-slate-400 leading-relaxed">Direct answer, headings, schema markup, citations, freshness, entity coverage.</div>
+            </div>
+            <div class="glass rounded-xl p-5">
+                <div class="text-2xl mb-2">🔀</div>
+                <div class="font-semibold text-slate-100 mb-1 text-sm">Query fan-out</div>
+                <div class="text-xs text-slate-400 leading-relaxed">10–15 LLM-generated sub-queries clustered by intent. Coverage scored vs. your draft.</div>
+            </div>
+            <div class="glass rounded-xl p-5">
+                <div class="text-2xl mb-2">⚡</div>
+                <div class="font-semibold text-slate-100 mb-1 text-sm">Pre-publish, not post-hoc</div>
+                <div class="text-xs text-slate-400 leading-relaxed">Catch problems before AI engines index you. Rewrite suggestions on every fail.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ (matches FAQPage JSON-LD) -->
+    <section id="faq" aria-labelledby="faq-heading" class="mt-20">
+        <h2 id="faq-heading" class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-5 text-center">Frequently asked questions</h2>
+        <div class="space-y-2 max-w-2xl mx-auto">
+            <details class="glass rounded-xl px-5 py-3 group">
+                <summary class="flex items-center justify-between gap-3 font-semibold text-slate-100">
+                    <span>What is AEO (Answer Engine Optimization)?</span>
+                    <svg class="chev text-slate-400 flex-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-sm text-slate-300 leading-relaxed">AEO (Answer Engine Optimization) is the practice of structuring web content so AI answer engines — ChatGPT, Perplexity, Claude, Gemini, and Google's AI Overviews — can extract, summarize, and cite it. It overlaps with traditional SEO but emphasizes direct-answer paragraphs, clean heading hierarchy, schema.org markup, inline citations, content freshness, and entity coverage rather than backlinks and keyword density.</p>
+            </details>
+            <details class="glass rounded-xl px-5 py-3">
+                <summary class="flex items-center justify-between gap-3 font-semibold text-slate-100">
+                    <span>How is AEO different from traditional SEO?</span>
+                    <svg class="chev text-slate-400 flex-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-sm text-slate-300 leading-relaxed">Traditional SEO optimizes for ranking on a search-results page; AEO optimizes for being quoted inside an AI-generated answer. AI engines parse for structured direct answers (1–3 sentences, no hedging), valid JSON-LD schema, factual citations, and broad semantic coverage of a topic. Pages can rank #1 on Google and still be invisible to ChatGPT or Perplexity if the structure isn't extractable.</p>
+            </details>
+            <details class="glass rounded-xl px-5 py-3">
+                <summary class="flex items-center justify-between gap-3 font-semibold text-slate-100">
+                    <span>How does AEGIS score my content?</span>
+                    <svg class="chev text-slate-400 flex-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-sm text-slate-300 leading-relaxed">AEGIS runs 6 structural checks on every page: <strong class="text-white">(1) Direct Answer</strong> — does the first paragraph give a 40–80 word declarative answer without hedge phrases? <strong class="text-white">(2) Heading Hierarchy</strong> — exactly one H1 with no level skips? <strong class="text-white">(3) Schema Markup</strong> — valid JSON-LD with the right @type for the page's intent? <strong class="text-white">(4) Citations</strong> — inline sources to authoritative domains? <strong class="text-white">(5) Freshness</strong> — explicit publish/update date within the last 18 months? <strong class="text-white">(6) Entity Coverage</strong> — enough relevant entities named to be semantically complete? Each check returns a sub-score and the AEO score is their weighted sum, capped at 100.</p>
+            </details>
+            <details class="glass rounded-xl px-5 py-3">
+                <summary class="flex items-center justify-between gap-3 font-semibold text-slate-100">
+                    <span>What is query fan-out and why does it matter for AI search?</span>
+                    <svg class="chev text-slate-400 flex-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-sm text-slate-300 leading-relaxed">When you ask an AI engine a question, the engine internally rewrites your query into 10–15 narrower sub-queries across different intents — comparative ("X vs Y"), feature-specific, use-case, trust-signal, how-to, and definitional — then retrieves and synthesizes evidence for each. If your content only answers the literal target query and ignores the fan-out, the engine cites whichever competitor does cover those intents. AEGIS generates the same kind of fan-out with an LLM and checks which of your competitors' likely sub-queries you actually answer.</p>
+            </details>
+            <details class="glass rounded-xl px-5 py-3">
+                <summary class="flex items-center justify-between gap-3 font-semibold text-slate-100">
+                    <span>Does AEGIS require signup or payment?</span>
+                    <svg class="chev text-slate-400 flex-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-sm text-slate-300 leading-relaxed">No. Three scans per IP per day are free with no account required. Paid plans unlock unlimited scans, AI-generated rewrites that re-pass every failed check, scheduled site-wide audits, GEO citation tracking, and API access.</p>
+            </details>
+            <details class="glass rounded-xl px-5 py-3">
+                <summary class="flex items-center justify-between gap-3 font-semibold text-slate-100">
+                    <span>Which AI search engines does AEGIS optimize for?</span>
+                    <svg class="chev text-slate-400 flex-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-sm text-slate-300 leading-relaxed">AEGIS targets the structural signals shared by every major AI answer engine: ChatGPT (Browse), Perplexity, Claude with web access, Google AI Overviews, Bing Copilot, You.com, and Meta AI. The 6 structural checks and the LLM fan-out are engine-agnostic — fixing them improves citation odds across all of them simultaneously.</p>
+            </details>
+            <details class="glass rounded-xl px-5 py-3">
+                <summary class="flex items-center justify-between gap-3 font-semibold text-slate-100">
+                    <span>Can I paste raw HTML or just URLs?</span>
+                    <svg class="chev text-slate-400 flex-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <p class="mt-3 text-sm text-slate-300 leading-relaxed">Both. Use the URL tab for any published page, or paste raw HTML or plain text into the "Raw text / HTML" tab to scan unpublished drafts before they ship. The same 6 structural checks and the optional query fan-out run on either input.</p>
+            </details>
+        </div>
+    </section>
+
+    <footer class="mt-20 text-center" role="contentinfo">
+        <nav aria-label="Footer" class="flex items-center justify-center gap-4 text-xs text-slate-500 mb-3">
+            <a href="#how" class="hover:text-white transition">How it works</a>
+            <span class="text-slate-700">·</span>
+            <a href="#faq" class="hover:text-white transition">FAQ</a>
+            <span class="text-slate-700">·</span>
+            <a href="/api/health" class="hover:text-white transition">Status</a>
+        </nav>
+        <div class="text-xs text-slate-600">Built on open-source NLP · AI Founding Engineer assignment</div>
+        <div class="text-[10px] text-slate-700 mt-1 font-mono">© AEGIS Autopilot</div>
+    </footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let mode = "url";
+
+const API_BASE = (() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("api")) return params.get("api").replace(/\/$/, "");
+    if (location.protocol === "file:") return "http://127.0.0.1:8000";
+    const livePorts = new Set(["5500", "5501", "5173", "3000", "4200", "8080"]);
+    if (livePorts.has(location.port)) return "http://127.0.0.1:8000";
+    return "";
+})();
+
+if (API_BASE) {
+    const banner = document.createElement("div");
+    banner.className = "glass rounded-lg px-4 py-2.5 mb-6 text-xs text-amber-200 flex items-center gap-2";
+    banner.innerHTML = `<span class="text-amber-400">⚠</span> Page opened from <code class="font-mono text-amber-300">${escapeHTML(location.origin || "file://")}</code> — calling API at <code class="font-mono text-amber-300">${escapeHTML(API_BASE)}</code>. For best results, <a class="underline hover:text-white" href="${API_BASE}/">open ${API_BASE}/ directly</a>.`;
+    document.querySelector("main").insertBefore(banner, document.querySelector("header"));
+}
+
+document.querySelectorAll(".mode-btn").forEach((b) => {
+    b.addEventListener("click", () => {
+        mode = b.dataset.mode;
+        document.querySelectorAll(".mode-btn").forEach((x) => {
+            x.classList.toggle("active", x.dataset.mode === mode);
+        });
+        $("input-url").classList.toggle("hidden", mode !== "url");
+        $("input-text").classList.toggle("hidden", mode !== "text");
+    });
+});
+
+async function postJSON(path, body) {
+    const url = API_BASE + path;
+    const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+}
+
+function escapeHTML(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function bandColor(band) {
+    return band === "AEO Optimized" ? { text: "text-emerald-300", bg: "from-emerald-500 to-teal-400", ring: "shadow-emerald-500/40" }
+         : band === "Needs Improvement" ? { text: "text-amber-300", bg: "from-amber-400 to-orange-400", ring: "shadow-amber-500/40" }
+         : band === "Significant Gaps" ? { text: "text-orange-300", bg: "from-orange-500 to-rose-500", ring: "shadow-orange-500/40" }
+         : { text: "text-rose-300", bg: "from-rose-500 to-pink-500", ring: "shadow-rose-500/40" };
+}
+
+function gaugeColors(score) {
+    if (score >= 85) return { c1: "#10b981", c2: "#34d399" };
+    if (score >= 65) return { c1: "#f59e0b", c2: "#fbbf24" };
+    if (score >= 40) return { c1: "#f97316", c2: "#fb923c" };
+    return { c1: "#ef4444", c2: "#f43f5e" };
+}
+
+function renderAEO(data) {
+    const col = bandColor(data.band);
+    const g = gaugeColors(data.aeo_score);
+    const passCount = data.checks.filter(c => c.passed).length;
+    const totalCount = data.checks.length;
+
+    const checks = data.checks.map((c, i) => `
+        <details class="check-row ${c.passed ? "pass" : "fail"} rounded-xl px-4 py-3 animate-fadeup" style="animation-delay:${0.05 + i*0.04}s">
+            <summary class="flex items-center justify-between gap-3">
+                <span class="flex items-center gap-3 min-w-0">
+                    <span class="flex-none w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${c.passed ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30' : 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'}">
+                        ${c.passed ? "✓" : "✗"}
+                    </span>
+                    <span class="font-medium text-slate-100 truncate">${escapeHTML(c.name)}</span>
+                </span>
+                <span class="flex items-center gap-3 flex-none">
+                    <span class="font-mono text-xs text-slate-400 tabular-nums">${c.score}/${c.max_score}</span>
+                    <svg class="chev text-slate-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
+            </summary>
+            <div class="mt-3 pl-10 space-y-2 text-sm">
+                ${c.recommendation ? `<p class="text-slate-300"><span class="text-violet-300 font-semibold">→ Fix:</span> ${escapeHTML(c.recommendation)}</p>` : ""}
+                <pre class="text-[11px] text-slate-500 bg-black/30 rounded-md p-2 overflow-x-auto border border-white/5">${escapeHTML(JSON.stringify(c.details, null, 2))}</pre>
+            </div>
+        </details>
+    `).join("");
+
+    return `
+        <div class="gradient-border rounded-2xl p-7 animate-fadeup">
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-7">
+                <!-- Gauge -->
+                <div class="relative flex-none">
+                    <div class="gauge-ring w-36 h-36 rounded-full flex items-center justify-center p-1.5 shadow-2xl ${col.ring}"
+                         style="--score:${data.aeo_score}; --c1:${g.c1}; --c2:${g.c2}">
+                        <div class="w-full h-full rounded-full bg-[#0a0a16] flex flex-col items-center justify-center">
+                            <div class="text-4xl font-bold tracking-tight text-white tabular-nums leading-none">${data.aeo_score}</div>
+                            <div class="text-[10px] uppercase tracking-widest text-slate-500 mt-1">/ 100</div>
+                        </div>
+                    </div>
+                    <div class="absolute -inset-2 rounded-full bg-gradient-to-br ${col.bg} opacity-20 blur-2xl -z-10 animate-glow"></div>
+                </div>
+
+                <!-- Summary -->
+                <div class="flex-1 min-w-0 text-center sm:text-left">
+                    <div class="text-xs uppercase tracking-[0.22em] text-slate-500 mb-2">AEO Score</div>
+                    <div class="text-2xl font-bold ${col.text} mb-3">${escapeHTML(data.band)}</div>
+                    <div class="flex flex-wrap justify-center sm:justify-start gap-2">
+                        <span class="px-2.5 py-1 rounded-md glass text-xs">
+                            <span class="text-emerald-400">✓</span>
+                            <span class="text-slate-300 ml-1">${passCount} passed</span>
+                        </span>
+                        <span class="px-2.5 py-1 rounded-md glass text-xs">
+                            <span class="text-amber-400">✗</span>
+                            <span class="text-slate-300 ml-1">${totalCount - passCount} failed</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-6 border-t border-white/5">
+                <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">Check breakdown</h3>
+                <div class="space-y-2">${checks}</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderFanout(data) {
+    if (!data) return "";
+    const gap = data.gap_summary;
+
+    const rows = data.sub_queries.map((q, i) => `
+        <tr class="border-t border-white/5 hover:bg-white/[.02] transition animate-fadeup" style="animation-delay:${0.02 + i*0.015}s">
+            <td class="py-2.5 pr-3 align-top">
+                <span class="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-500/10 text-violet-300 ring-1 ring-violet-500/20">${escapeHTML(q.type)}</span>
+            </td>
+            <td class="py-2.5 pr-3 text-slate-200 text-sm">${escapeHTML(q.query)}</td>
+            <td class="py-2.5 text-right align-top">
+                ${q.covered === true ? '<span class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30 text-xs">✓</span>'
+                : q.covered === false ? '<span class="inline-flex items-center justify-center w-6 h-6 rounded-md bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/30 text-xs">✗</span>'
+                : '<span class="text-slate-600 text-lg">—</span>'}
+            </td>
+        </tr>
+    `).join("");
+
+    let gapBlock = "";
+    if (gap) {
+        const pct = gap.coverage_percent;
+        const pctColor = pct >= 70 ? "from-emerald-400 to-teal-400" : pct >= 40 ? "from-amber-400 to-orange-400" : "from-rose-400 to-pink-500";
+        gapBlock = `
+            <div class="mb-5 p-4 rounded-xl glass">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Coverage</span>
+                    <span class="font-mono text-sm tabular-nums"><span class="text-white font-bold">${gap.covered}</span><span class="text-slate-500">/${gap.total}</span> <span class="text-slate-400">· ${pct}%</span></span>
+                </div>
+                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r ${pctColor} rounded-full transition-all duration-1000" style="width:${pct}%"></div>
+                </div>
+                ${gap.missing_types.length ? `
+                <div class="mt-3 flex flex-wrap items-center gap-1.5">
+                    <span class="text-xs text-slate-500 mr-1">Missing intent types:</span>
+                    ${gap.missing_types.map(t => `<span class="font-mono text-[10px] uppercase px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-300 ring-1 ring-rose-500/20">${escapeHTML(t)}</span>`).join("")}
+                </div>` : ""}
+            </div>`;
+    }
+
+    const clusters = (data.intent_clusters || []).map(c => `
+        <div class="glass rounded-lg p-3">
+            <div class="flex items-center justify-between mb-1">
+                <span class="font-mono text-[10px] uppercase tracking-wider text-violet-300">${escapeHTML(c.dominant_type)}</span>
+                <span class="text-xs text-slate-400 font-mono">${c.member_count} qs ${c.coverage_percent != null ? `· ${c.coverage_percent}%` : ""}</span>
+            </div>
+            <div class="text-sm text-slate-200">${escapeHTML(c.label)}</div>
+        </div>
+    `).join("");
+
+    return `
+        <div class="gradient-border rounded-2xl p-7 animate-fadeup">
+            <div class="flex items-center justify-between mb-5">
+                <div>
+                    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Semantic Gap Analysis</h2>
+                    <p class="text-sm text-slate-300 mt-1">Sub-queries AI engines fan out to for <span class="text-white font-semibold">"${escapeHTML(data.target_query)}"</span></p>
+                </div>
+                <span class="font-mono text-[10px] text-slate-500">${escapeHTML(data.model_used || "")}</span>
+            </div>
+
+            ${gapBlock}
+
+            ${clusters ? `
+            <div class="mb-5">
+                <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">Intent clusters</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${clusters}</div>
+            </div>` : ""}
+
+            <div>
+                <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">All sub-queries</h3>
+                <div class="overflow-x-auto rounded-lg border border-white/5">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-white/[.02] text-left text-[10px] uppercase tracking-wider text-slate-500">
+                                <th class="py-2 px-3 font-semibold">Type</th>
+                                <th class="py-2 px-3 font-semibold">Sub-query</th>
+                                <th class="py-2 px-3 font-semibold text-right">Cover</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderError(label, msg) {
+    return `<div class="rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-sm animate-fadeup">
+        <div class="flex items-start gap-3">
+            <span class="flex-none w-7 h-7 rounded-lg bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/30 flex items-center justify-center font-bold">!</span>
+            <div>
+                <div class="font-semibold text-rose-200">${escapeHTML(label)}</div>
+                <div class="text-rose-300/80 mt-1">${escapeHTML(msg)}</div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function setStatus(text, withOrb) {
+    const s = $("status");
+    s.innerHTML = withOrb ? `<span class="scan-orb"></span> <span>${escapeHTML(text)}</span>` : escapeHTML(text);
+}
+
+$("scan-btn").addEventListener("click", async () => {
+    const btn = $("scan-btn");
+    const btnLabel = $("scan-btn-label");
+    const results = $("results");
+    const progress = $("progress");
+
+    const value = (mode === "url" ? $("url-value").value : $("text-value").value).trim();
+    if (!value) {
+        setStatus("Enter a URL or paste content first.", false);
+        return;
+    }
+    const targetQuery = $("target-query").value.trim();
+
+    btn.disabled = true;
+    btnLabel.textContent = "Analyzing…";
+    setStatus("Running AEO checks…", true);
+    progress.classList.remove("hidden");
+    results.classList.add("hidden");
+    results.innerHTML = "";
+
+    const aeoRes = await postJSON("/api/aeo/analyze", { input_type: mode, input_value: value });
+
+    if (!aeoRes.ok) {
+        if (aeoRes.status === 429) {
+            results.innerHTML = renderError("Daily limit reached",
+                "You've used 3 free scans today. Come back tomorrow or get in touch for a paid plan.");
+        } else {
+            results.innerHTML = renderError(aeoRes.data.error || "Error",
+                aeoRes.data.message || aeoRes.data.detail || `HTTP ${aeoRes.status}`);
+        }
+        results.classList.remove("hidden");
+        btn.disabled = false;
+        btnLabel.textContent = "Run AEO scan";
+        setStatus("", false);
+        progress.classList.add("hidden");
+        return;
+    }
+
+    let html = renderAEO(aeoRes.data);
+
+    if (targetQuery) {
+        setStatus("Generating query fan-out…", true);
+        const existing = mode === "text" ? value : null;
+        const fan = await postJSON("/api/fanout/generate", {
+            target_query: targetQuery,
+            existing_content: existing,
+        });
+        if (fan.ok) {
+            html += renderFanout(fan.data);
+        } else if (fan.status === 429) {
+            html += renderError("Fan-out skipped", "Rate limit reached for today.");
+        } else {
+            html += renderError("Fan-out failed",
+                fan.data.message || fan.data.detail || `HTTP ${fan.status}`);
+        }
+    }
+
+    results.innerHTML = html;
+    results.classList.remove("hidden");
+    setStatus("Scan complete.", false);
+    progress.classList.add("hidden");
+    btn.disabled = false;
+    btnLabel.textContent = "Run another scan";
+
+    results.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,215 @@
+"""Autopilot CLI.
+
+    python -m app.autopilot prospect --seed "best SEO tool" --limit 10
+    python -m app.autopilot audit --batch-size 20
+    python -m app.autopilot report          # M3 stub
+    python -m app.autopilot mail            # M4 stub
+    python -m app.autopilot run --seed "X"  # chain everything
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import logging
+import sys
+
+from dotenv import load_dotenv
+
+load_dotenv(override=False)
+
+from app.autopilot.audit_runner import run_pending  # noqa: E402
+from app.autopilot.contact_finder import default_finder  # noqa: E402
+from app.autopilot.email_sequence import tick as sequence_tick  # noqa: E402
+from app.autopilot.outbox_mailer import send_pending as mail_send_pending  # noqa: E402
+from app.autopilot.prospector import discover  # noqa: E402
+from app.autopilot.report_builder import build_pending as build_reports_pending  # noqa: E402
+from app.db.base import dispose_engine, get_sessionmaker  # noqa: E402
+from app.db.models import Prospect, ProspectStatus  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+
+
+def _configure_logging(verbose: bool) -> None:
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+
+async def _cmd_prospect(args: argparse.Namespace) -> int:
+    sm = get_sessionmaker()
+    async with sm() as session:
+        new = await discover(session, args.seed, limit=args.limit)
+        await session.commit()
+    print(f"prospect: inserted {len(new)} new prospects for seed {args.seed!r}")
+    return 0
+
+
+async def _cmd_audit(args: argparse.Namespace) -> int:
+    sm = get_sessionmaker()
+    async with sm() as session:
+        audited = await run_pending(
+            session,
+            batch_size=args.batch_size,
+            concurrency=args.concurrency,
+            fanout_concurrency=args.fanout_concurrency,
+        )
+        await session.commit()
+    print(f"audit: audited {audited} prospects")
+    return 0
+
+
+async def _cmd_report(args: argparse.Namespace) -> int:
+    sm = get_sessionmaker()
+    async with sm() as session:
+        built = await build_reports_pending(
+            session, limit=args.limit, write_pdf=not args.no_pdf
+        )
+        await session.commit()
+    print(f"report: built {built} reports")
+    return 0
+
+
+async def _cmd_contacts(args: argparse.Namespace) -> int:
+    """Walk audited-but-uncontacted prospects, find emails, insert Contact rows."""
+    finder = default_finder()
+    sm = get_sessionmaker()
+    found = 0
+    async with sm() as session:
+        prospects = (
+            await session.execute(
+                select(Prospect)
+                .where(Prospect.status == ProspectStatus.audited)
+                .limit(args.limit)
+            )
+        ).scalars().all()
+        for p in prospects:
+            contacts = await finder.find(p)
+            for c in contacts:
+                session.add(c)
+                found += 1
+        await session.commit()
+    print(f"contacts: discovered {found} contacts across {len(prospects)} prospects")
+    return 0
+
+
+async def _cmd_mail(args: argparse.Namespace) -> int:
+    sm = get_sessionmaker()
+    async with sm() as session:
+        stats = await mail_send_pending(
+            session,
+            min_score_cutoff=args.cutoff,
+            max_sends=args.max_sends,
+            dry_run=args.dry_run,
+        )
+        await session.commit()
+    print(
+        f"mail: eligible={stats.eligible} sent={stats.sent} "
+        f"skipped={stats.skipped} failed={stats.failed}"
+    )
+    return 0
+
+
+async def _cmd_sequence(args: argparse.Namespace) -> int:
+    sm = get_sessionmaker()
+    async with sm() as session:
+        results = await sequence_tick(
+            session,
+            max_per_variant=args.max_sends,
+            dry_run=args.dry_run,
+        )
+        await session.commit()
+    if not results:
+        print("sequence: nothing due")
+        return 0
+    for variant, stats in results.items():
+        print(
+            f"sequence[{variant}]: eligible={stats.eligible} sent={stats.sent} "
+            f"skipped={stats.skipped} failed={stats.failed}"
+        )
+    return 0
+
+
+async def _cmd_run(args: argparse.Namespace) -> int:
+    for step in (_cmd_prospect, _cmd_audit, _cmd_contacts,
+                 _cmd_report, _cmd_mail, _cmd_sequence):
+        rc = await step(args)
+        if rc != 0:
+            return rc
+    return 0
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="app.autopilot", description=__doc__)
+    parser.add_argument("-v", "--verbose", action="store_true")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p_prospect = sub.add_parser("prospect", help="Run SerpAPI discovery")
+    p_prospect.add_argument("--seed", required=True)
+    p_prospect.add_argument("--limit", type=int, default=10)
+    p_prospect.set_defaults(func=_cmd_prospect)
+
+    p_audit = sub.add_parser("audit", help="Audit queued prospects")
+    p_audit.add_argument("--batch-size", type=int, default=20)
+    p_audit.add_argument("--concurrency", type=int, default=5)
+    p_audit.add_argument("--fanout-concurrency", type=int, default=2)
+    p_audit.set_defaults(func=_cmd_audit)
+
+    p_report = sub.add_parser("report", help="Build HTML/PDF reports for audited prospects")
+    p_report.add_argument("--limit", type=int, default=50)
+    p_report.add_argument("--no-pdf", action="store_true",
+                          help="Skip WeasyPrint PDF; HTML only.")
+    p_report.set_defaults(func=_cmd_report)
+
+    p_contacts = sub.add_parser("contacts", help="Discover contact emails for audited prospects")
+    p_contacts.add_argument("--limit", type=int, default=50)
+    p_contacts.set_defaults(func=_cmd_contacts)
+
+    p_mail = sub.add_parser("mail", help="Send cold outreach emails")
+    p_mail.add_argument("--cutoff", type=int, default=70,
+                        help="Only mail prospects with AEO score below this.")
+    p_mail.add_argument("--max-sends", type=int, default=30,
+                        help="Hard daily cap during deliverability warm-up.")
+    p_mail.add_argument("--dry-run", action="store_true",
+                        help="Render + log + insert Outreach row but do not send.")
+    p_mail.set_defaults(func=_cmd_mail)
+
+    p_seq = sub.add_parser("sequence", help="Run state-aware follow-up drip")
+    p_seq.add_argument("--max-sends", type=int, default=30)
+    p_seq.add_argument("--dry-run", action="store_true")
+    p_seq.set_defaults(func=_cmd_sequence)
+
+    p_run = sub.add_parser("run", help="prospect → audit → report → mail")
+    p_run.add_argument("--seed", required=True)
+    p_run.add_argument("--limit", type=int, default=10)
+    p_run.add_argument("--batch-size", type=int, default=20)
+    p_run.add_argument("--concurrency", type=int, default=5)
+    p_run.add_argument("--fanout-concurrency", type=int, default=2)
+    p_run.add_argument("--no-pdf", action="store_true")
+    p_run.add_argument("--cutoff", type=int, default=70)
+    p_run.add_argument("--max-sends", type=int, default=30)
+    p_run.add_argument("--dry-run", action="store_true")
+    p_run.set_defaults(func=_cmd_run)
+
+    return parser
+
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    _configure_logging(args.verbose)
+
+    async def _run() -> int:
+        try:
+            return await args.func(args)
+        finally:
+            await dispose_engine()
+
+    return asyncio.run(_run())
+
+
+if __name__ == "__main__":
+    sys.exit(main())

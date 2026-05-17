@@ -181,8 +181,43 @@ def extract_json(raw: str) -> dict:
     raise json.JSONDecodeError("could not extract JSON object", text, 0)
 
 
+LOCALE_NAMES_FOR_PROMPT: dict[str, str] = {
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "nl": "Dutch",
+    "sv": "Swedish",
+    "da": "Danish",
+    "no": "Norwegian",
+    "hi": "Hindi",
+    "ta": "Tamil",
+    "te": "Telugu",
+    "kn": "Kannada",
+    "bn": "Bengali",
+    "ml": "Malayalam",
+}
+
+
+def _locale_suffix(target_locale: str | None) -> str:
+    if not target_locale:
+        return ""
+    code = target_locale.strip().lower()
+    name = LOCALE_NAMES_FOR_PROMPT.get(code, code.upper())
+    return (
+        f"\n\nIMPORTANT: every `query` string in the JSON output MUST be written in {name} "
+        f"(ISO 639-1 `{code}`). Do not mix languages; do not translate the user's "
+        f"target_query — instead, emit native-language reformulations only."
+    )
+
+
 async def _attempt(
-    client: LLMClient, target_query: str
+    client: LLMClient,
+    target_query: str,
+    *,
+    target_locale: str | None = None,
 ) -> LLMFanoutResponse:
     """One LLM call → JSON parse → Pydantic validate.
 
@@ -190,7 +225,8 @@ async def _attempt(
     retry loop translates into a single informative `detail` string.
     """
     user_prompt = USER_PROMPT_TEMPLATE.format(target_query=target_query)
-    raw = await _generate_raw(client, target_query, SYSTEM_PROMPT, user_prompt)
+    system_prompt = SYSTEM_PROMPT + _locale_suffix(target_locale)
+    raw = await _generate_raw(client, target_query, system_prompt, user_prompt)
     parsed = extract_json(raw)
     return LLMFanoutResponse.model_validate(parsed)
 
@@ -236,17 +272,21 @@ async def generate_fanout(
     target_query: str,
     *,
     client: LLMClient | None = None,
+    target_locale: str | None = None,
 ) -> tuple[LLMFanoutResponse, str]:
     """Generate sub-queries with retries.
 
     Returns `(validated_response, model_id)`. Raises `LLMUnavailableError`
-    with an informative `detail` after `MAX_ATTEMPTS` failures.
+    with an informative `detail` after `MAX_ATTEMPTS` failures. Pass
+    `target_locale` to ask the LLM to emit sub-queries in that language.
     """
     client = client or get_llm_client()
     last_detail = "no attempts made"
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
-            response = await _attempt(client, target_query)
+            response = await _attempt(
+                client, target_query, target_locale=target_locale
+            )
             return response, client.model_id
         except LLMUnavailableError as e:
             # Network / SDK error — already wrapped with detail. Retry.
@@ -274,33 +314,50 @@ async def run_fanout(
     existing_content: str | None,
     *,
     client: LLMClient | None = None,
+    target_locale: str | None = None,
 ) -> FanoutResponse:
     """End-to-end orchestrator used by the API endpoint.
 
-    Generates sub-queries, then if content is provided, runs gap analysis
-    and assembles the full response. When no content is provided,
-    `covered`/`similarity_score`/`gap_summary` are all None — the route
-    uses `response_model_exclude_none=True` to drop them from the JSON.
+    Generates sub-queries, runs Fan-Out v2 intent clustering, and (if
+    content is provided) also runs the v1 gap analysis. When no content
+    is provided, `covered`/`similarity_score`/`gap_summary` are None —
+    the route uses `response_model_exclude_none=True` to drop them from
+    the JSON. `intent_clusters` is always populated. `target_locale`
+    is forwarded to the LLM so sub-queries are emitted in the requested
+    language.
     """
-    llm_response, model_id = await generate_fanout(target_query, client=client)
+    llm_response, model_id = await generate_fanout(
+        target_query, client=client, target_locale=target_locale
+    )
 
-    if existing_content is None or not existing_content.strip():
+    # Lazy import to avoid pulling sentence-transformers when not needed.
+    from app.services.fanout_v2 import cluster_subqueries, embed_queries
+
+    has_content = existing_content is not None and existing_content.strip()
+    query_vecs = embed_queries(llm_response.sub_queries)
+
+    if not has_content:
         sub_queries = [
             SubQueryResponse(type=sq.type, query=sq.query)
             for sq in llm_response.sub_queries
         ]
+        intent_clusters = cluster_subqueries(
+            llm_response.sub_queries, query_vecs=query_vecs
+        )
         return FanoutResponse(
             target_query=llm_response.target_query,
             model_used=model_id,
             total_sub_queries=len(sub_queries),
             sub_queries=sub_queries,
             gap_summary=None,
+            intent_clusters=intent_clusters,
         )
 
-    # Lazy import to avoid pulling sentence-transformers when not needed.
     from app.services.gap_analyzer import build_gap_summary, score_subqueries
 
-    scores = score_subqueries(llm_response.sub_queries, existing_content)
+    scores = score_subqueries(
+        llm_response.sub_queries, existing_content, query_vecs=query_vecs
+    )
     sub_queries = [
         SubQueryResponse(
             type=sq.type,
@@ -311,12 +368,16 @@ async def run_fanout(
         for sq, (covered, score) in zip(llm_response.sub_queries, scores)
     ]
     gap_summary = build_gap_summary(sub_queries)
+    intent_clusters = cluster_subqueries(
+        llm_response.sub_queries, scored=sub_queries, query_vecs=query_vecs
+    )
     return FanoutResponse(
         target_query=llm_response.target_query,
         model_used=model_id,
         total_sub_queries=len(sub_queries),
         sub_queries=sub_queries,
         gap_summary=gap_summary,
+        intent_clusters=intent_clusters,
     )
 
 

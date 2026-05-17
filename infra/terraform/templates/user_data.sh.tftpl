@@ -1,0 +1,242 @@
+#!/usr/bin/env bash
+# Rendered by Terraform. Runs once on first boot via cloud-init.
+set -euo pipefail
+exec > >(tee /var/log/aegis-bootstrap.log | logger -t aegis-bootstrap) 2>&1
+
+REGION="${aws_region}"
+SECRET_ARN="${secret_arn}"
+IMAGE_URI="${image_uri}"
+DOMAIN_NAME="${domain_name}"
+BACKUPS_BUCKET="${backups_bucket}"
+DB_ADDRESS="${db_address}"
+
+dnf update -y
+dnf install -y docker jq amazon-cloudwatch-agent postgresql16
+
+# Caddy (official repo)
+dnf install -y 'dnf-command(copr)' || true
+dnf copr enable -y @caddy/caddy || true
+dnf install -y caddy
+
+systemctl enable --now docker
+
+# Compose v2 plugin (docker-cli already there on AL2023)
+COMPOSE_VER="v2.29.7"
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fSL "https://github.com/docker/compose/releases/download/$${COMPOSE_VER}/docker-compose-linux-aarch64" \
+    -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# ECR login (uses instance-profile creds)
+aws ecr get-login-password --region "$${REGION}" | \
+    docker login --username AWS --password-stdin "$${IMAGE_URI%/*}"
+
+install -d -m 0755 -o ec2-user -g ec2-user /opt/aegis /opt/aegis/backups /var/log/aegis
+
+# Pull env from Secrets Manager into /opt/aegis/.env on every boot
+cat > /usr/local/bin/aegis-render-env <<'RENDER'
+#!/usr/bin/env bash
+set -euo pipefail
+REGION="$1"
+SECRET_ARN="$2"
+aws secretsmanager get-secret-value --region "$REGION" --secret-id "$SECRET_ARN" \
+    --query SecretString --output text | \
+    jq -r 'to_entries[] | "\(.key)=\(.value)"' > /opt/aegis/.env.new
+chmod 600 /opt/aegis/.env.new
+mv /opt/aegis/.env.new /opt/aegis/.env
+chown ec2-user:ec2-user /opt/aegis/.env
+RENDER
+chmod +x /usr/local/bin/aegis-render-env
+/usr/local/bin/aegis-render-env "$${REGION}" "$${SECRET_ARN}"
+
+# Compose file — image:latest tag, env_file injected, awslogs driver
+cat > /opt/aegis/docker-compose.yml <<COMPOSE
+services:
+  app:
+    image: $${IMAGE_URI}
+    container_name: aegis-app
+    env_file: [.env]
+    ports: ["127.0.0.1:8000:8000"]
+    restart: unless-stopped
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: $${REGION}
+        awslogs-group: /aegis/prod/app
+        awslogs-create-group: "true"
+        awslogs-stream: app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+COMPOSE
+chown -R ec2-user:ec2-user /opt/aegis
+
+# Caddyfile
+cat > /etc/caddy/Caddyfile <<CADDY
+{
+    email admin@$${DOMAIN_NAME}
+}
+
+$${DOMAIN_NAME}, www.$${DOMAIN_NAME} {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+
+hooks.$${DOMAIN_NAME} {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+CADDY
+systemctl enable --now caddy
+systemctl reload caddy || true
+
+# Boot the container
+cd /opt/aegis
+docker compose pull
+docker compose up -d
+
+# ---- systemd timers for autopilot jobs ----
+
+cat > /etc/systemd/system/aegis-blog.service <<'UNIT'
+[Unit]
+Description=AEGIS blog scheduler (one-shot)
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/aegis
+ExecStart=/usr/bin/docker compose exec -T app python -m app.autopilot.blog_scheduler --once
+UNIT
+
+cat > /etc/systemd/system/aegis-blog.timer <<'UNIT'
+[Unit]
+Description=AEGIS blog post every 3 days
+[Timer]
+OnCalendar=*-*-1/3 09:00:00
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+
+cat > /etc/systemd/system/aegis-site-runner.service <<'UNIT'
+[Unit]
+Description=AEGIS weekly site re-audit
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/aegis
+ExecStart=/usr/bin/docker compose exec -T app python -m app.autopilot.site_runner
+UNIT
+
+cat > /etc/systemd/system/aegis-site-runner.timer <<'UNIT'
+[Unit]
+Description=AEGIS weekly site re-audit Sunday 03:00 UTC
+[Timer]
+OnCalendar=Sun *-*-* 03:00:00
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+
+cat > /etc/systemd/system/aegis-outbox.service <<'UNIT'
+[Unit]
+Description=AEGIS outbox mailer
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/aegis
+ExecStart=/usr/bin/docker compose exec -T app python -m app.autopilot.outbox_mailer
+UNIT
+
+cat > /etc/systemd/system/aegis-outbox.timer <<'UNIT'
+[Unit]
+Description=AEGIS outbox mailer every 5 minutes
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+
+# DB backup -> S3
+cat > /etc/systemd/system/aegis-db-backup.service <<UNIT
+[Unit]
+Description=Nightly RDS pg_dump to S3
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/aegis/.env
+ExecStart=/bin/bash -c '\
+  TS=\$(date -u +\%%F); \
+  /usr/bin/pg_dump "\$\$DATABASE_URL" | gzip > /opt/aegis/backups/aegis-\$\$TS.sql.gz && \
+  /usr/bin/aws s3 cp /opt/aegis/backups/aegis-\$\$TS.sql.gz s3://$${BACKUPS_BUCKET}/db/aegis-\$\$TS.sql.gz \
+    --region $${REGION} --storage-class STANDARD_IA && \
+  find /opt/aegis/backups -mtime +3 -delete'
+UNIT
+
+cat > /etc/systemd/system/aegis-db-backup.timer <<'UNIT'
+[Unit]
+Description=AEGIS daily DB backup at 02:00 UTC
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+
+# Note: pg_dump expects libpq URL, not asyncpg.  DATABASE_URL has the
+# `postgresql+asyncpg://` prefix used by the app; strip it for pg_dump.
+cat > /opt/aegis/db_backup_url <<UNIT
+# helper sourced by aegis-db-backup
+UNIT
+
+# Strip asyncpg prefix in the EnvironmentFile by writing a sibling file.
+cat > /usr/local/bin/aegis-prepare-pgdump-env <<'PREP'
+#!/usr/bin/env bash
+set -euo pipefail
+src=/opt/aegis/.env
+dst=/opt/aegis/.pgdump.env
+awk -F= '/^DATABASE_URL=/ {
+    sub("postgresql\\+asyncpg://", "postgresql://", $0)
+}
+{print}' "$src" > "$dst"
+chmod 600 "$dst"
+PREP
+chmod +x /usr/local/bin/aegis-prepare-pgdump-env
+/usr/local/bin/aegis-prepare-pgdump-env
+
+# Patch the backup unit to consume the sibling file
+sed -i 's|EnvironmentFile=/opt/aegis/.env|EnvironmentFile=/opt/aegis/.pgdump.env|' \
+    /etc/systemd/system/aegis-db-backup.service
+
+systemctl daemon-reload
+systemctl enable --now aegis-blog.timer aegis-site-runner.timer aegis-outbox.timer aegis-db-backup.timer
+
+# ---- CloudWatch agent (host-level metrics: mem, disk) ----
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CW'
+{
+  "metrics": {
+    "namespace": "AEGIS/EC2",
+    "metrics_collected": {
+      "mem":  { "measurement": ["mem_used_percent"], "metrics_collection_interval": 60 },
+      "disk": { "measurement": ["used_percent"], "metrics_collection_interval": 60, "resources": ["/"] }
+    }
+  }
+}
+CW
+systemctl enable --now amazon-cloudwatch-agent
+
+echo "[aegis-bootstrap] complete"

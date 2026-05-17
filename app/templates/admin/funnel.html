@@ -1,0 +1,112 @@
+{% extends "_base.html" %}
+{% block title %}Admin · Funnel ({{ days }}d) — AEGIS Autopilot{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<section class="max-w-5xl mx-auto px-6 pt-12 pb-24">
+  <header class="mb-6 fadeup">
+    <div class="flex items-center gap-3 text-xs text-slate-500 mb-2">
+      <a href="/admin?token={{ token }}" class="hover:text-white">← Admin</a>
+      <span>/</span>
+      <span class="text-slate-300">Funnel</span>
+    </div>
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Conversion <span class="gradient-text">funnel</span></h1>
+        <p class="text-slate-400 text-sm mt-1">Window: <strong class="text-white">{{ days }} days</strong> · <span class="font-mono">{{ since[:10] }} → {{ until[:10] }}</span></p>
+      </div>
+      <form action="/admin/funnel/view" method="get" class="flex items-center gap-2">
+        <input type="hidden" name="token" value="{{ token }}" />
+        <input type="number" name="days" value="{{ days }}" min="1" max="365"
+               class="w-20 rounded-lg px-3 py-1.5 text-sm" />
+        <button type="submit" class="btn-ghost px-3 py-1.5 rounded-lg text-sm font-medium">Refresh</button>
+      </form>
+    </div>
+  </header>
+
+  <div class="gradient-border rounded-2xl p-6 mb-4 fadeup" style="animation-delay:.05s">
+    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-4">Stage counts</h2>
+    <canvas id="funnelChart" height="180"></canvas>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div class="gradient-border rounded-2xl p-6 fadeup" style="animation-delay:.1s">
+      <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">Conversion rates</h2>
+      <div class="overflow-x-auto rounded-lg border border-white/5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-white/[.02] text-left text-[10px] uppercase tracking-wider text-slate-500">
+              <th class="py-2 px-3 font-semibold">Step</th>
+              <th class="py-2 px-3 font-semibold text-right">Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for label, rate in rates.items() %}
+            <tr class="border-t border-white/5">
+              <td class="py-2 px-3 text-slate-300">{{ label.replace('_', ' → ') }}</td>
+              <td class="py-2 px-3 text-right font-mono tabular-nums {% if rate >= 0.5 %}text-emerald-300{% elif rate >= 0.2 %}text-amber-300{% else %}text-rose-300{% endif %}">{{ '{:.1%}'.format(rate) }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="gradient-border rounded-2xl p-6 fadeup" style="animation-delay:.14s">
+      <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">Stage counts (table)</h2>
+      <div class="overflow-x-auto rounded-lg border border-white/5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-white/[.02] text-left text-[10px] uppercase tracking-wider text-slate-500">
+              <th class="py-2 px-3 font-semibold">Stage</th>
+              <th class="py-2 px-3 font-semibold text-right">Count</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for stage, count in counts.items() %}
+            <tr class="border-t border-white/5">
+              <td class="py-2 px-3 text-slate-300 capitalize">{{ stage }}</td>
+              <td class="py-2 px-3 text-right text-white font-mono tabular-nums">{{ count }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  const counts = {{ counts | tojson }};
+  const ctx = document.getElementById('funnelChart');
+  const grad = ctx.getContext('2d').createLinearGradient(0, 0, 600, 0);
+  grad.addColorStop(0, '#8b5cf6');
+  grad.addColorStop(0.5, '#ec4899');
+  grad.addColorStop(1, '#38bdf8');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(counts),
+      datasets: [{
+        label: 'Events',
+        data: Object.values(counts),
+        backgroundColor: grad,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0a0a16', titleColor: '#fff', bodyColor: '#cbd5e1', borderColor: 'rgba(167,139,250,.3)', borderWidth: 1 } },
+      scales: {
+        x: { beginAtZero: true, ticks: { precision: 0, color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,.05)' } },
+        y: { ticks: { font: { size: 12 }, color: '#cbd5e1' }, grid: { display: false } }
+      }
+    }
+  });
+</script>
+{% endblock %}

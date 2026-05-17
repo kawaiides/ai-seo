@@ -1,0 +1,107 @@
+{% extends "_base.html" %}
+{% block title %}Admin · Blog auto-generator — AEGIS{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<section class="max-w-5xl mx-auto px-6 pt-12 pb-24">
+  <header class="mb-6 fadeup">
+    <div class="flex items-center gap-3 text-xs text-slate-500 mb-2">
+      <a href="/admin?token={{ token }}" class="hover:text-white">← Admin</a>
+      <span>/</span>
+      <span class="text-slate-300">Blog auto-generator</span>
+    </div>
+    <h1 class="text-3xl font-bold tracking-tight">Blog <span class="gradient-text">auto-generator</span></h1>
+    <p class="text-slate-400 text-sm mt-1">Drafts a new SEO article every {{ interval_hours }} hours, scores it against the live AEO checks, revises until ≥ 85, and publishes to <code class="font-mono text-violet-300">/blog</code>.</p>
+  </header>
+
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div class="gradient-border rounded-2xl p-5 fadeup" style="animation-delay:.04s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Interval</div>
+      <div class="text-2xl font-bold text-white">{{ interval_hours }}h</div>
+    </div>
+    <div class="glass rounded-2xl p-5 fadeup" style="animation-delay:.08s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Due now?</div>
+      <div class="text-2xl font-bold {% if due_now %}text-emerald-300{% else %}text-slate-400{% endif %}">{{ "Yes" if due_now else "No" }}</div>
+    </div>
+    <div class="glass rounded-2xl p-5 fadeup" style="animation-delay:.12s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Total generated</div>
+      <div class="text-2xl font-bold text-white">{{ state.total_generated or 0 }}</div>
+    </div>
+    <div class="glass rounded-2xl p-5 fadeup" style="animation-delay:.16s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Last generated</div>
+      <div class="text-sm font-mono text-white">{{ (state.last_generated_at[:16] if state.last_generated_at else '(never)') }}</div>
+    </div>
+  </div>
+
+  <div class="gradient-border rounded-2xl p-7 mb-6 fadeup" style="animation-delay:.2s">
+    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-3">Trigger a generation now</h2>
+    <p class="text-sm text-slate-400 mb-4">Bypasses the {{ interval_hours }}h interval check. Calls the LLM to propose a new topic, drafts the article, scores it via the local AEO check pipeline, revises if &lt; 85, and saves. Costs roughly $0.05–0.10 in tokens.</p>
+    <button id="gen-btn" type="button" class="btn-primary px-5 py-2.5 rounded-xl font-semibold">
+      <span id="gen-label">Generate one now →</span>
+    </button>
+    <div id="gen-status" class="mt-4 text-sm text-slate-300 min-h-[1.25rem]"></div>
+  </div>
+
+  {% if state.history %}
+  <div class="gradient-border rounded-2xl p-1 fadeup" style="animation-delay:.24s">
+    <div class="overflow-x-auto rounded-xl">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-white/[.02] text-left text-[10px] uppercase tracking-wider text-slate-500">
+            <th class="py-3 px-4 font-semibold">Slug</th>
+            <th class="py-3 px-4 font-semibold">Title</th>
+            <th class="py-3 px-4 font-semibold">Score</th>
+            <th class="py-3 px-4 font-semibold">Generated</th>
+            <th class="py-3 px-4 font-semibold">Live</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in state.history|reverse %}
+          <tr class="border-t border-white/5 hover:bg-white/[.02] transition">
+            <td class="py-3 px-4 font-mono text-xs text-slate-400">{{ h.slug }}</td>
+            <td class="py-3 px-4 text-slate-200">{{ h.title }}</td>
+            <td class="py-3 px-4">
+              {% set sc = 'emerald' if h.score and h.score >= 85 else 'amber' if h.score and h.score >= 65 else 'rose' %}
+              <span class="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-{{ sc }}-500/15 text-{{ sc }}-300 ring-1 ring-{{ sc }}-500/30">{{ h.score or '?' }}/100</span>
+            </td>
+            <td class="py-3 px-4 text-slate-500 font-mono text-xs">{{ h.generated_at[:16] if h.generated_at else '—' }}</td>
+            <td class="py-3 px-4"><a href="/blog/{{ h.slug }}" target="_blank" class="text-violet-300 hover:text-white text-xs underline">→ open</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <p class="text-sm text-slate-500 italic">No generations recorded yet.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const btn = document.getElementById("gen-btn");
+  const label = document.getElementById("gen-label");
+  const status = document.getElementById("gen-status");
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    label.textContent = "Generating… (may take 30–90 s)";
+    status.innerHTML = '<span class="inline-flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-violet-400 shadow-[0_0_8px_#a78bfa] animate-pulse"></span> LLM drafting + scoring…</span>';
+    try {
+      const r = await fetch("/admin/blog/generate?token={{ token }}", {
+        method: "POST",
+        headers: { "X-Admin-Token": "{{ token }}" },
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+      status.innerHTML = `<span class="text-emerald-300">✓ Generated <strong>${data.slug}</strong> · score ${data.score}/100 · revisions ${data.revisions}.</span> <a href="/blog/${data.slug}" target="_blank" class="underline text-violet-300 hover:text-white ml-2">→ Open</a>`;
+      setTimeout(() => location.reload(), 2500);
+    } catch (e) {
+      status.innerHTML = `<span class="text-rose-300">✗ ${e.message}</span>`;
+    } finally {
+      btn.disabled = false;
+      label.textContent = "Generate another →";
+    }
+  });
+</script>
+{% endblock %}

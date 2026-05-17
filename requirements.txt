@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 httpx
+jinja2
 beautifulsoup4
 spacy
 textstat
@@ -9,5 +10,18 @@ torch
 google-generativeai
 openai
 pydantic>=2.0
+pydantic-settings>=2.0
+python-dotenv
+python-multipart
+sqlalchemy[asyncio]>=2.0
+asyncpg
+psycopg2-binary
+alembic
+aiosmtplib
+itsdangerous
+tenacity
+stripe
+razorpay
 pytest
 pytest-asyncio
+respx

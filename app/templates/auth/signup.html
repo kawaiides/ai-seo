@@ -1,0 +1,56 @@
+{% extends "_base.html" %}
+{% block title %}Sign up — AEGIS Autopilot{% endblock %}
+{% block description %}Create your free AEGIS account. 3 daily AEO scans, optional Pro for unlimited scans + AI rewrites.{% endblock %}
+{% block robots %}noindex, follow{% endblock %}
+
+{% block content %}
+<section class="max-w-md mx-auto px-6 pt-14 pb-24">
+  <div class="text-center mb-8 fadeup">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass text-xs text-slate-300 mb-5">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+      <span>Free · No credit card</span>
+    </div>
+    <h1 class="text-4xl font-bold tracking-tight mb-2">Create your <span class="gradient-text">AEGIS</span> account</h1>
+    <p class="text-slate-400 text-sm">Passwordless signup. Enter your email and you're in.</p>
+  </div>
+
+  <form action="/api/auth/signup" method="post" class="gradient-border rounded-2xl p-7 fadeup space-y-4" style="animation-delay:.08s">
+    {% if error %}
+      <div class="rounded-lg border border-rose-500/30 bg-rose-500/5 p-3 text-sm text-rose-200">{{ error }}</div>
+    {% endif %}
+    <input type="hidden" name="next" value="{{ next_url }}" />
+    <div>
+      <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2" for="email">Email</label>
+      <input id="email" name="email" type="email" required autocomplete="email"
+             placeholder="you@company.com"
+             class="w-full rounded-lg px-4 py-3 text-base" />
+    </div>
+    <button type="submit" class="btn-primary w-full py-3 rounded-xl text-base">Create account →</button>
+    <p class="text-xs text-slate-500 text-center pt-1">
+      By signing up you agree to our <a href="#" class="underline hover:text-white">Terms</a> and <a href="#" class="underline hover:text-white">Privacy</a>.
+    </p>
+  </form>
+
+  <p class="text-center text-sm text-slate-400 mt-6">
+    Already have an account? <a href="/login" class="text-violet-300 hover:text-white font-medium">Log in</a>
+  </p>
+
+  <div class="mt-10 grid grid-cols-3 gap-2 fadeup" style="animation-delay:.16s">
+    <div class="glass rounded-lg p-3 text-center">
+      <div class="text-lg mb-1">⚡</div>
+      <div class="text-[10px] uppercase tracking-wider text-slate-400">Free scans</div>
+      <div class="text-sm font-bold text-white">3 / day</div>
+    </div>
+    <div class="glass rounded-lg p-3 text-center">
+      <div class="text-lg mb-1">🔀</div>
+      <div class="text-[10px] uppercase tracking-wider text-slate-400">Fan-out</div>
+      <div class="text-sm font-bold text-white">10–15</div>
+    </div>
+    <div class="glass rounded-lg p-3 text-center">
+      <div class="text-lg mb-1">📊</div>
+      <div class="text-[10px] uppercase tracking-wider text-slate-400">Checks</div>
+      <div class="text-sm font-bold text-white">6 / page</div>
+    </div>
+  </div>
+</section>
+{% endblock %}

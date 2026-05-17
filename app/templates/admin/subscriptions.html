@@ -1,0 +1,67 @@
+{% extends "_base.html" %}
+{% block title %}Admin · Subscriptions — AEGIS Autopilot{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<section class="max-w-6xl mx-auto px-6 pt-12 pb-24">
+  <header class="mb-6 fadeup">
+    <div class="flex items-center gap-3 text-xs text-slate-500 mb-2">
+      <a href="/admin?token={{ token }}" class="hover:text-white">← Admin</a>
+      <span>/</span>
+      <span class="text-slate-300">Subscriptions</span>
+    </div>
+    <h1 class="text-3xl font-bold tracking-tight">Recent <span class="gradient-text">subscriptions</span></h1>
+    <p class="text-slate-400 text-sm mt-1">Latest {{ rows|length }} rows (max {{ limit }}).</p>
+  </header>
+
+  <!-- Status pills -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    {% for status, count in by_status.items() %}
+    {% set sc = 'emerald' if status == 'active' else 'amber' if status == 'past_due' else 'rose' if status == 'canceled' else 'slate' %}
+    <div class="glass rounded-2xl p-4 fadeup" style="animation-delay:.{{ loop.index0 * 4 + 4 }}s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-{{ sc }}-300 mb-1">{{ status }}</div>
+      <div class="text-2xl font-bold text-white tabular-nums">{{ count }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="gradient-border rounded-2xl p-1 fadeup" style="animation-delay:.2s">
+    <div class="overflow-x-auto rounded-xl">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="bg-white/[.02] text-left text-[10px] uppercase tracking-wider text-slate-500">
+            <th class="py-3 px-4 font-semibold">User</th>
+            <th class="py-3 px-4 font-semibold">Processor</th>
+            <th class="py-3 px-4 font-semibold">External ID</th>
+            <th class="py-3 px-4 font-semibold">Status</th>
+            <th class="py-3 px-4 font-semibold">Period ends</th>
+            <th class="py-3 px-4 font-semibold">Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sub, u in rows %}
+          <tr class="border-t border-white/5 hover:bg-white/[.02] transition">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-2.5">
+                <span class="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-[9px] font-bold text-white">{{ (u.email or '?')[:1]|upper }}</span>
+                <span class="text-white">{{ u.email or '(anon)' }}</span>
+              </div>
+            </td>
+            <td class="py-3 px-4 capitalize text-slate-200">{{ sub.processor.value }}</td>
+            <td class="py-3 px-4 font-mono text-xs text-slate-400">{{ sub.external_id|truncate(28, True, '…') }}</td>
+            <td class="py-3 px-4">
+              {% set sc = 'emerald' if sub.status.value == 'active' else 'amber' if sub.status.value == 'past_due' else 'rose' if sub.status.value == 'canceled' else 'slate' %}
+              <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md bg-{{ sc }}-500/15 text-{{ sc }}-300 ring-1 ring-{{ sc }}-500/30">{{ sub.status.value }}</span>
+            </td>
+            <td class="py-3 px-4 text-slate-400 font-mono text-xs">{{ sub.current_period_end.strftime('%Y-%m-%d') if sub.current_period_end else '—' }}</td>
+            <td class="py-3 px-4 text-slate-500 font-mono text-xs">{{ sub.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="py-8 px-4 text-center text-slate-500 italic">No subscriptions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,8 @@
+<!doctype html>
+<html><body style="font:15px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;max-width:560px;margin:0 auto;padding:24px;">
+<p>Hi{% if ctx.contact_name %} {{ ctx.contact_name }}{% endif %},</p>
+<p>I'll stop here — no more emails from me on this audit. The report stays live indefinitely if you want it later:</p>
+<p><a href="{{ ctx.report_url }}">{{ ctx.report_url }}</a></p>
+<p style="color:#94a3b8;font-size:12px;">— AEGIS Autopilot</p>
+<img src="{{ ctx.report_url }}/p.gif" width="1" height="1" alt="" style="display:block;border:0;">
+</body></html>

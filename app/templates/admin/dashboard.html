@@ -1,0 +1,76 @@
+{% extends "_base.html" %}
+{% block title %}Admin — AEGIS Autopilot{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<section class="max-w-6xl mx-auto px-6 pt-12 pb-24">
+  <header class="mb-8 fadeup">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-xs uppercase tracking-[0.22em] text-slate-500 mb-2">Admin · Operator console</div>
+        <h1 class="text-4xl font-bold tracking-tight">Control <span class="gradient-text">tower</span></h1>
+      </div>
+      <span class="text-[10px] font-mono text-slate-500 px-2 py-1 rounded-md glass">authenticated</span>
+    </div>
+  </header>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+    <div class="gradient-border rounded-2xl p-5 fadeup" style="animation-delay:.04s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Users (all time)</div>
+      <div class="text-3xl font-bold text-white tabular-nums">{{ kpis.user_total }}</div>
+    </div>
+    <div class="glass rounded-2xl p-5 fadeup" style="animation-delay:.08s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">New users (30d)</div>
+      <div class="text-3xl font-bold text-white tabular-nums">{{ kpis.user_30d }}</div>
+    </div>
+    <div class="glass rounded-2xl p-5 fadeup" style="animation-delay:.12s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">Active subscriptions</div>
+      <div class="text-3xl font-bold gradient-text tabular-nums">{{ kpis.sub_active }}</div>
+    </div>
+    <div class="glass rounded-2xl p-5 fadeup" style="animation-delay:.16s">
+      <div class="text-[10px] uppercase tracking-[0.18em] text-slate-500 mb-2">New subs (30d)</div>
+      <div class="text-3xl font-bold text-white tabular-nums">{{ kpis.sub_30d }}</div>
+    </div>
+  </div>
+
+  <!-- Tools -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <a href="/admin/funnel/view?token={{ token }}&days=30" class="gradient-border rounded-2xl p-6 fadeup group" style="animation-delay:.2s">
+      <div class="text-3xl mb-3 group-hover:scale-110 transition-transform inline-block">📈</div>
+      <h3 class="font-bold text-white text-lg mb-1">Funnel</h3>
+      <p class="text-sm text-slate-400">Stage-to-stage conversion across the prospecting → conversion pipeline.</p>
+    </a>
+
+    <a href="/admin/users?token={{ token }}" class="gradient-border rounded-2xl p-6 fadeup group" style="animation-delay:.24s">
+      <div class="text-3xl mb-3 group-hover:scale-110 transition-transform inline-block">👥</div>
+      <h3 class="font-bold text-white text-lg mb-1">Users</h3>
+      <p class="text-sm text-slate-400">Recent signups, plan tier, region. {{ kpis.paying }} paying.</p>
+    </a>
+
+    <a href="/admin/subscriptions?token={{ token }}" class="gradient-border rounded-2xl p-6 fadeup group" style="animation-delay:.28s">
+      <div class="text-3xl mb-3 group-hover:scale-110 transition-transform inline-block">💳</div>
+      <h3 class="font-bold text-white text-lg mb-1">Subscriptions</h3>
+      <p class="text-sm text-slate-400">Status breakdown, processor, renewal dates, churn.</p>
+    </a>
+
+    <a href="/admin/blog?token={{ token }}" class="gradient-border rounded-2xl p-6 fadeup group" style="animation-delay:.32s">
+      <div class="text-3xl mb-3 group-hover:scale-110 transition-transform inline-block">🤖</div>
+      <h3 class="font-bold text-white text-lg mb-1">Auto-blog</h3>
+      <p class="text-sm text-slate-400">Every-3-day SEO article generator. Score, revise, publish, repeat.</p>
+    </a>
+  </div>
+
+  <!-- Quick links -->
+  <div class="mt-8 glass rounded-2xl p-6 fadeup" style="animation-delay:.32s">
+    <div class="text-xs uppercase tracking-[0.2em] text-slate-500 mb-3">Quick links</div>
+    <div class="flex flex-wrap gap-2">
+      <a href="/" class="text-xs px-3 py-1.5 rounded-lg glass hover:bg-white/[.08] transition">→ Public site</a>
+      <a href="/pricing" class="text-xs px-3 py-1.5 rounded-lg glass hover:bg-white/[.08] transition">→ Pricing</a>
+      <a href="/api/health" class="text-xs px-3 py-1.5 rounded-lg glass hover:bg-white/[.08] transition">→ Health check</a>
+      <a href="/sitemap.xml" class="text-xs px-3 py-1.5 rounded-lg glass hover:bg-white/[.08] transition">→ sitemap.xml</a>
+      <a href="/robots.txt" class="text-xs px-3 py-1.5 rounded-lg glass hover:bg-white/[.08] transition">→ robots.txt</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
