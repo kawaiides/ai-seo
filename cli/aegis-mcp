@@ -19,6 +19,11 @@ while [ -L "$SOURCE" ]; do
 done
 REPO_ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
 
+# `python -m cli.aegis_mcp` only resolves when REPO_ROOT is on sys.path.
+# cd there before exec so the module loader finds `cli` regardless of
+# where the MCP host launches us from.
+cd "$REPO_ROOT"
+
 # Prefer the local venv but fall back to the user's python.
 if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
   exec "$REPO_ROOT/.venv/bin/python" -m cli.aegis_mcp "$@"
