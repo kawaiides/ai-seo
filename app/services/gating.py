@@ -156,6 +156,38 @@ def reset_quota() -> None:
         _quota.clear()
 
 
+def consume_quota_slot_or_paywall(request: Request, ctx: "PaywallContext") -> None:
+    """Charge one free-tier quota slot, or 429 with the paywall envelope.
+
+    Use this when the LLM call is conditional — for example, the GEO
+    probe route only spends OpenAI credit on cache miss. The route deps
+    resolve plan tier via `require_pro_or_byok_or_quota_no_count` (which
+    never 429s), then this helper is invoked just before the LLM call so
+    cache hits don't burn the user's daily 3.
+
+    Bypasses on BYOK / Pro / `AEGIS_DISABLE_RATE_LIMIT=1`; matches the
+    counting path of `require_pro_or_byok_or_quota` otherwise.
+    """
+    if ctx.using_byok or ctx.has_active_subscription:
+        return
+    if os.environ.get("AEGIS_DISABLE_RATE_LIMIT") == "1":
+        return
+    identity = _client_identity(request, ctx.user)
+    today = date.today()
+    key = (identity, today)
+    with _quota_lock:
+        used = _quota.get(key, 0)
+        if used >= DAILY_FREE_LIMIT:
+            country = request.headers.get("CF-IPCountry") or (
+                ctx.user.ip_country if ctx.user else None
+            )
+            raise HTTPException(
+                status_code=429,
+                detail=_paywall_envelope(country),
+            )
+        _quota[key] = used + 1
+
+
 async def require_pro_or_byok_or_quota_no_count(
     request: Request,
     x_byok_openai_key: Optional[str] = Header(default=None, alias=BYOK_HEADER_OPENAI),

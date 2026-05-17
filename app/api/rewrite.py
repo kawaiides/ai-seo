@@ -1,9 +1,17 @@
 """Rewrite endpoints (Phase B.1).
 
-Two sibling endpoints:
+Endpoints:
 
-  POST /api/rewrite/direct_answer  — LLM-driven, 3 back-validated variants
-  POST /api/rewrite/headings       — deterministic, no LLM, free for users
+  POST /api/rewrite/direct_answer  — LLM-driven, 3 back-validated variants (gated)
+  POST /api/rewrite/schema_gen     — LLM-driven JSON-LD generation       (gated)
+  POST /api/rewrite/bulk           — runs direct + headings + schema     (gated)
+  POST /api/rewrite/headings       — deterministic, no LLM, free for all
+
+Decision #5 (Pro-gating audit): every route that spends LLM credit is
+gated by `require_pro_or_byok_or_quota`. Free tier gets the daily quota
+(env `AEGIS_FREE_DAILY_LIMIT`, default 3); BYOK header bypasses; active
+subscription bypasses. The `headings` route stays open because it's
+pure-string heuristics — no OpenAI call.
 
 The direct-answer endpoint shares the existing `LLMUnavailableError`
 exception handler so the spec's 503 envelope is reused.
@@ -11,7 +19,7 @@ exception handler so the spec's 503 envelope is reused.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.schemas import (
     BulkRewriteRequest,
@@ -26,6 +34,7 @@ from app.models.schemas import (
     SchemaGenResult,
 )
 from app.services.content_parser import fetch_url, parse
+from app.services.gating import PaywallContext, require_pro_or_byok_or_quota
 from app.services.rewrite.bulk import run_bulk_rewrite
 from app.services.rewrite.direct_answer import rewrite_direct_answer
 from app.services.rewrite.headings import autofix_headings, to_html
@@ -40,6 +49,7 @@ router = APIRouter()
 )
 async def direct_answer(
     req: DirectAnswerRewriteRequest,
+    ctx: PaywallContext = Depends(require_pro_or_byok_or_quota),
 ) -> DirectAnswerRewriteResponse:
     raw = await fetch_url(req.input_value) if req.input_type == "url" else req.input_value
     parsed = parse(raw, input_type=req.input_type)
@@ -83,7 +93,10 @@ async def headings(req: HeadingsFixRequest) -> HeadingsFixResponse:
     "/schema_gen",
     response_model=SchemaGenResult,
 )
-async def schema_gen(req: SchemaGenRequest) -> SchemaGenResult:
+async def schema_gen(
+    req: SchemaGenRequest,
+    ctx: PaywallContext = Depends(require_pro_or_byok_or_quota),
+) -> SchemaGenResult:
     raw = await fetch_url(req.input_value) if req.input_type == "url" else req.input_value
     parsed = parse(raw, input_type=req.input_type)
     if not parsed.body_text or not parsed.body_text.strip():
@@ -102,7 +115,10 @@ async def schema_gen(req: SchemaGenRequest) -> SchemaGenResult:
     "/bulk",
     response_model=BulkRewriteResponse,
 )
-async def bulk(req: BulkRewriteRequest) -> BulkRewriteResponse:
+async def bulk(
+    req: BulkRewriteRequest,
+    ctx: PaywallContext = Depends(require_pro_or_byok_or_quota),
+) -> BulkRewriteResponse:
     raw = await fetch_url(req.input_value) if req.input_type == "url" else req.input_value
     parsed = parse(raw, input_type=req.input_type)
     outcome = await run_bulk_rewrite(

@@ -4,6 +4,7 @@
     python -m app.autopilot audit --batch-size 20
     python -m app.autopilot report          # M3 stub
     python -m app.autopilot mail            # M4 stub
+    python -m app.autopilot site_reaudit    # weekly re-audit cron entrypoint
     python -m app.autopilot run --seed "X"  # chain everything
 """
 
@@ -24,8 +25,11 @@ from app.autopilot.email_sequence import tick as sequence_tick  # noqa: E402
 from app.autopilot.outbox_mailer import send_pending as mail_send_pending  # noqa: E402
 from app.autopilot.prospector import discover  # noqa: E402
 from app.autopilot.report_builder import build_pending as build_reports_pending  # noqa: E402
+from app.autopilot.site_runner import run_weekly_reaudit  # noqa: E402
 from app.db.base import dispose_engine, get_sessionmaker  # noqa: E402
 from app.db.models import Prospect, ProspectStatus  # noqa: E402
+from app.integrations.linear import LinearNotifier  # noqa: E402
+from app.integrations.slack import SlackNotifier  # noqa: E402
 from sqlalchemy import select  # noqa: E402
 
 
@@ -131,6 +135,43 @@ async def _cmd_sequence(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _cmd_site_reaudit(args: argparse.Namespace) -> int:
+    """Re-audit every tracked Site + dispatch score-drop notifications.
+
+    Wire this to a weekly cron (or call it as a one-shot from the admin
+    panel). Notifiers self-skip when their env vars aren't set so dev
+    runs don't accidentally page production channels.
+    """
+    notifiers = (SlackNotifier(), LinearNotifier())
+    sm = get_sessionmaker()
+    async with sm() as session:
+        results = await run_weekly_reaudit(
+            session,
+            pages_per_site=args.pages_per_site,
+            concurrency=args.concurrency,
+            notifiers=notifiers,
+        )
+        await session.commit()
+    total_alerts = sum(len(r.alerts) for r in results)
+    delivered = sum(
+        1
+        for r in results
+        for d in r.notify_results
+        if d.result.delivered
+    )
+    failed = sum(
+        1
+        for r in results
+        for d in r.notify_results
+        if not d.result.delivered
+    )
+    print(
+        f"site_reaudit: sites={len(results)} alerts={total_alerts} "
+        f"notify_delivered={delivered} notify_failed={failed}"
+    )
+    return 0
+
+
 async def _cmd_run(args: argparse.Namespace) -> int:
     for step in (_cmd_prospect, _cmd_audit, _cmd_contacts,
                  _cmd_report, _cmd_mail, _cmd_sequence):
@@ -174,6 +215,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p_mail.add_argument("--dry-run", action="store_true",
                         help="Render + log + insert Outreach row but do not send.")
     p_mail.set_defaults(func=_cmd_mail)
+
+    p_reaudit = sub.add_parser(
+        "site_reaudit",
+        help="Re-audit every tracked Site + dispatch Slack/Linear alerts",
+    )
+    p_reaudit.add_argument("--pages-per-site", type=int, default=50)
+    p_reaudit.add_argument("--concurrency", type=int, default=4)
+    p_reaudit.set_defaults(func=_cmd_site_reaudit)
 
     p_seq = sub.add_parser("sequence", help="Run state-aware follow-up drip")
     p_seq.add_argument("--max-sends", type=int, default=30)

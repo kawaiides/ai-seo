@@ -22,7 +22,11 @@ from app.db.models import (
 )
 from app.services import gating
 from app.services.byok import hash_key
-from app.services.gating import require_pro_or_byok_or_quota
+from app.services.gating import (
+    PaywallContext,
+    consume_quota_slot_or_paywall,
+    require_pro_or_byok_or_quota,
+)
 
 
 def _request(headers: dict[str, str] | None = None) -> Request:
@@ -217,3 +221,53 @@ async def test_disable_rate_limit_env_skips_quota(monkeypatch):
         )
         assert ctx.byok_key is None
     assert sum(gating._quota.values()) == 0  # bypassed entirely
+
+
+# ---- consume_quota_slot_or_paywall (used by GEO probe cache-miss path) ----
+
+
+def _ctx(*, byok: bool = False, sub: bool = False, user: Optional[User] = None) -> PaywallContext:
+    return PaywallContext(
+        user=user,
+        byok_key="sk-byok" if byok else None,
+        has_active_subscription=sub,
+    )
+
+
+def test_consume_slot_bypassed_by_byok():
+    consume_quota_slot_or_paywall(_request(), _ctx(byok=True))
+    assert sum(gating._quota.values()) == 0
+
+
+def test_consume_slot_bypassed_by_subscription():
+    consume_quota_slot_or_paywall(_request(), _ctx(sub=True))
+    assert sum(gating._quota.values()) == 0
+
+
+def test_consume_slot_bypassed_by_disable_env(monkeypatch):
+    monkeypatch.setenv("AEGIS_DISABLE_RATE_LIMIT", "1")
+    for _ in range(50):
+        consume_quota_slot_or_paywall(_request(), _ctx())
+    assert sum(gating._quota.values()) == 0
+
+
+def test_consume_slot_counts_and_429s():
+    for _ in range(3):
+        consume_quota_slot_or_paywall(_request(), _ctx())
+    assert sum(gating._quota.values()) == 3
+    with pytest.raises(HTTPException) as exc:
+        consume_quota_slot_or_paywall(_request(), _ctx())
+    assert exc.value.status_code == 429
+    env = exc.value.detail
+    assert env["error"] == "quota_exhausted"
+    assert env["price_display"] == "$49/mo"
+
+
+def test_consume_slot_routes_india_to_razorpay():
+    for _ in range(3):
+        consume_quota_slot_or_paywall(_request({"CF-IPCountry": "IN"}), _ctx())
+    with pytest.raises(HTTPException) as exc:
+        consume_quota_slot_or_paywall(_request({"CF-IPCountry": "IN"}), _ctx())
+    env = exc.value.detail
+    assert env["processor"] == "razorpay"
+    assert env["price"] == 99900

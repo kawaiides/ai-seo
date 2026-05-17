@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Site, SitePage, SitePageAudit
+from app.integrations.notifier import Notifier, NotifyResult
 from app.services.site.audit import SiteAuditOutcome, audit_site_pages
 
 log = logging.getLogger(__name__)
@@ -49,11 +50,23 @@ class ScoreDropAlert:
 
 
 @dataclass
+class NotifyDispatch:
+    """Per-alert delivery record: which notifier ran against which alert
+    and how it ended. Surfaced on `SiteRunResult.notify_results` so the
+    admin UI can show "notified Slack ✓ / Linear ✗" without re-querying."""
+
+    notifier: str
+    page_url: str
+    result: NotifyResult
+
+
+@dataclass
 class SiteRunResult:
     site_id: UUID
     root_url: str
     outcome: SiteAuditOutcome
     alerts: list[ScoreDropAlert] = field(default_factory=list)
+    notify_results: list[NotifyDispatch] = field(default_factory=list)
 
 
 async def run_weekly_reaudit(
@@ -62,11 +75,17 @@ async def run_weekly_reaudit(
     pages_per_site: int = DEFAULT_PAGES_PER_SITE,
     concurrency: int = DEFAULT_AUDIT_CONCURRENCY,
     site_ids: Sequence[UUID] | None = None,
+    notifiers: Sequence[Notifier] | None = None,
 ) -> list[SiteRunResult]:
     """Re-audit each `Site`'s pages and compute score-drop alerts.
 
     `site_ids` lets a caller scope a single run to one site (used by the
     admin "re-audit now" button in Phase D). Pass `None` to iterate all.
+
+    `notifiers` are dispatched per score-drop alert. A notifier whose
+    `enabled` property is falsy is silently skipped (env-driven Slack /
+    Linear no-op in dev). Pass `None` (default) for no dispatch — unit
+    tests and the legacy CLI path both rely on this.
     """
     sites = await _select_sites(session, site_ids)
     results: list[SiteRunResult] = []
@@ -79,15 +98,62 @@ async def run_weekly_reaudit(
         # the rows that audit_site_pages just appended.
         await session.flush()
         alerts = await compute_score_drop_alerts(session, site.id)
+        notify_results = await _dispatch_alerts(
+            site_root_url=site.root_url,
+            alerts=alerts,
+            notifiers=notifiers,
+        )
         results.append(
             SiteRunResult(
                 site_id=site.id,
                 root_url=site.root_url,
                 outcome=outcome,
                 alerts=alerts,
+                notify_results=notify_results,
             )
         )
     return results
+
+
+async def _dispatch_alerts(
+    *,
+    site_root_url: str,
+    alerts: Sequence[ScoreDropAlert],
+    notifiers: Sequence[Notifier] | None,
+) -> list[NotifyDispatch]:
+    if not notifiers or not alerts:
+        return []
+    out: list[NotifyDispatch] = []
+    for alert in alerts:
+        for notifier in notifiers:
+            if not getattr(notifier, "enabled", True):
+                continue
+            try:
+                result = await notifier.notify_score_drop(
+                    site_root_url=site_root_url,
+                    page_url=alert.url,
+                    prior_score=alert.prior_score,
+                    new_score=alert.new_score,
+                    delta=alert.delta,
+                    failed_checks=alert.failed_checks,
+                )
+            except Exception as e:  # never let one bad notifier kill the run
+                log.warning(
+                    "notify failed for %s via %s: %s",
+                    alert.url, notifier.name, e,
+                )
+                result = NotifyResult(
+                    delivered=False,
+                    detail=f"{type(e).__name__}: {e}",
+                )
+            out.append(
+                NotifyDispatch(
+                    notifier=notifier.name,
+                    page_url=alert.url,
+                    result=result,
+                )
+            )
+    return out
 
 
 async def _select_sites(
