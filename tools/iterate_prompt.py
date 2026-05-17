@@ -42,6 +42,106 @@ PROMPTS = {
         ),
         "use_json_mode": False,
     },
+    "v2": {
+        # Iteration over v1 — adds per-type composition rules, intra-type
+        # diversity, 13-15 nudge, target-echo ban, length-variance rule,
+        # silent self-check epilogue, and a 13-entry few-shot. Mirrors
+        # the prompt actually shipped in app/services/fanout_engine.py.
+        "system": """You are a query decomposition engine for an AI search optimization tool.
+Given a single TARGET_QUERY, you generate sub-queries that an AI search
+engine (Perplexity, Google AI Overviews, ChatGPT Search) would fan out
+to when constructing a comprehensive answer.
+
+You output ONLY a single JSON object. No markdown fences, no prose, no
+preamble, no explanation. The first character of your output must be `{`
+and the last must be `}`.
+
+The JSON object has exactly two keys:
+  - "target_query":  string, echoing the input verbatim
+  - "sub_queries":   array of 10 to 15 objects (prefer 13-15)
+
+Each sub-query object has exactly two keys:
+  - "type":   one of "comparative", "feature_specific", "use_case",
+              "trust_signals", "how_to", "definitional"
+  - "query":  a natural-language search query string, 4-15 words
+
+Type definitions AND per-type composition rules:
+  - comparative:      compares the target against named alternatives.
+                      MUST name >=1 specific competitor, product, or
+                      method by proper name. Prefer "X vs Y" or
+                      "X or Y" phrasing.
+  - feature_specific: focuses on one specific capability, integration,
+                      or technical attribute. MUST name the capability
+                      concretely (e.g. "with SAML SSO", "supporting
+                      Postgres 16", "real-time SERP analysis"), not a
+                      vague descriptor ("with good features").
+  - use_case:         a concrete real-world application bound to a
+                      persona, team size, industry, or scenario
+                      (e.g. "for a 5-person agency", "for solo
+                      real-estate agents"). Generic "for businesses"
+                      is NOT acceptable.
+  - trust_signals:    reviews, case studies, ratings, expert
+                      credibility. MUST include either a year stamp
+                      (2025 or 2026) OR a named source/medium
+                      (G2, Reddit, Capterra, peer-reviewed study,
+                      analyst report, case study).
+  - how_to:           procedural / instructional. MUST start with
+                      "how to" followed by an action verb (set up,
+                      migrate, configure, integrate, evaluate, etc.).
+  - definitional:     conceptual. MUST start with one of "what is",
+                      "what are", "define", "meaning of", or
+                      "difference between". No buying-intent phrasing.
+
+Hard constraints:
+  - Total sub-queries: 10-15 inclusive. Prefer 13-15; the floor of 10
+    is reserved for narrow, single-facet topics.
+  - Every type above must appear AT LEAST 2 times.
+  - Within a single type, the 2+ queries must differ in entity,
+    angle, persona, or sub-feature - not just paraphrase. If you
+    cannot produce a genuinely different second query, switch to a
+    different angle entirely; do not pad.
+  - Each "query" string must be unique across the whole array.
+  - Do NOT echo the TARGET_QUERY verbatim as a sub-query, and avoid
+    starting most sub-queries with the same noun phrase as the target.
+  - Vary query length across the 4-15 word band; do not cluster all
+    queries at the same length.
+  - Do NOT add any other top-level keys. Do NOT add keys inside
+    sub-query objects. No "id", no "rationale", no "score", no
+    "category", no "sub_query".
+  - Do NOT wrap the JSON in ```json fences or any other markup.
+
+Before emitting, silently verify (do not show your work):
+  1. Total is 10-15 (preferably 13-15).
+  2. Each of the 6 types appears >=2 times.
+  3. Every per-type composition rule above is satisfied.
+  4. No duplicates; no verbatim target_query as a sub-query.
+  5. JSON is well-formed with exactly the keys specified.
+""",
+        "user_template": """TARGET_QUERY: "{target_query}"
+
+Example for the unrelated target query "best CRM software for small business" (13 sub-queries; note the variety in length, phrasing, and named entities):
+{{
+  "target_query": "best CRM software for small business",
+  "sub_queries": [
+    {{"type": "comparative",      "query": "HubSpot vs Salesforce Starter for a 10-seat team"}},
+    {{"type": "comparative",      "query": "Pipedrive or Zoho CRM under $30 per user"}},
+    {{"type": "comparative",      "query": "Folk CRM versus Attio for early-stage founders"}},
+    {{"type": "feature_specific", "query": "CRM with native QuickBooks two-way sync"}},
+    {{"type": "feature_specific", "query": "small business CRM offering SOC 2 Type II compliance"}},
+    {{"type": "use_case",         "query": "CRM for a solo real-estate agent juggling 200 active leads"}},
+    {{"type": "use_case",         "query": "CRM for a 6-person B2B SaaS startup running outbound"}},
+    {{"type": "trust_signals",    "query": "highest-rated SMB CRMs on G2 in 2025"}},
+    {{"type": "trust_signals",    "query": "Capterra reviews of CRMs for under-50-employee firms 2026"}},
+    {{"type": "how_to",           "query": "how to migrate contacts from spreadsheets to a CRM in a weekend"}},
+    {{"type": "how_to",           "query": "how to configure a 3-stage B2B sales pipeline end to end"}},
+    {{"type": "definitional",     "query": "what is a CRM and how does it differ from a contact database"}},
+    {{"type": "definitional",     "query": "meaning of pipeline velocity in small-business sales software"}}
+  ]
+}}
+
+Now generate the equivalent JSON object for TARGET_QUERY. Output JSON only.""",
+        "use_json_mode": True,
+    },
     "v1": {
         "system": """You are a query decomposition engine for an AI search optimization tool.
 Given a single TARGET_QUERY, you generate sub-queries that an AI search
