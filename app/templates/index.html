@@ -570,6 +570,22 @@
                     <span class="text-violet-300 font-semibold">✦ Suggested from your content.</span>
                     <button id="rerun-fanout" type="button" class="ml-1 underline decoration-dotted hover:text-white">Re-run fan-out with edits →</button>
                 </p>
+
+                <!-- Auto-rerun countdown — fires after AUTO_RERUN_MS of inactivity
+                     either after results land (idle mode) or after the last
+                     edit (edit-debounce mode). Click the textbox or hit
+                     Cancel to stop. -->
+                <div id="auto-rerun-bar" class="hidden mt-2 rounded-md border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs flex items-center gap-3">
+                    <span class="scan-orb"></span>
+                    <span class="flex-1 text-slate-300">
+                        <span id="auto-rerun-label">Auto-re-running fan-out in</span>
+                        <span id="auto-rerun-count" class="font-mono text-violet-200">15s</span>
+                    </span>
+                    <div class="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
+                        <div id="auto-rerun-progress" class="h-full bg-gradient-to-r from-violet-400 to-fuchsia-400" style="width:100%"></div>
+                    </div>
+                    <button id="auto-rerun-cancel" type="button" class="text-slate-400 hover:text-white text-[10px] uppercase tracking-wider font-bold">Cancel</button>
+                </div>
                 <p class="text-xs text-slate-500 mt-2 leading-relaxed">Generates 10–15 sub-queries across comparative, feature, use-case, trust, how-to, and definitional intent — then checks which your content covers.</p>
             </div>
         </details>
@@ -1206,12 +1222,99 @@ function clearSkeleton() {
 // and clicks "Re-run fan-out with edits →").
 let lastScanContext = null;  // { mode, value, existing }
 
+// --- Auto-rerun state machine ---
+//
+// `idle`  → results just landed with a suggested query; if user
+//           doesn't touch the textbox in AUTO_RERUN_MS, auto re-run.
+// `edit`  → user has edited the textbox; debounce another
+//           AUTO_RERUN_MS after the last keystroke, then re-run.
+// `null`  → no timer armed (explicit query, manual cancel, or no
+//           suggestion was used).
+//
+// Either mode is cancelled by: clicking Cancel, hitting the manual
+// "Re-run fan-out" button, or starting a fresh scan.
+const AUTO_RERUN_MS = 15000;
+let autoRerunMode = null;
+let autoRerunTimeoutId = null;
+let autoRerunDeadlineMs = 0;
+let autoRerunCountdownId = null;
+let autoRerunInFlight = false;
+
 async function runFanout(targetQuery) {
     if (!lastScanContext) return null;
     return await postJSON("/api/fanout/generate", {
         target_query: targetQuery,
         existing_content: lastScanContext.existing,
     });
+}
+
+function showAutoRerunBar(mode) {
+    const bar = $("auto-rerun-bar");
+    const label = $("auto-rerun-label");
+    if (!bar) return;
+    label.textContent = mode === "edit"
+        ? "Auto-re-running with your edits in"
+        : "Auto-re-running fan-out in";
+    bar.classList.remove("hidden");
+    updateAutoRerunCountdown();
+}
+
+function hideAutoRerunBar() {
+    const bar = $("auto-rerun-bar");
+    bar?.classList.add("hidden");
+    const progress = $("auto-rerun-progress");
+    if (progress) progress.style.width = "100%";
+}
+
+function updateAutoRerunCountdown() {
+    const remainingMs = Math.max(0, autoRerunDeadlineMs - Date.now());
+    const seconds = Math.ceil(remainingMs / 1000);
+    const count = $("auto-rerun-count");
+    if (count) count.textContent = `${seconds}s`;
+    const progress = $("auto-rerun-progress");
+    if (progress) progress.style.width = `${(remainingMs / AUTO_RERUN_MS) * 100}%`;
+}
+
+function scheduleAutoRerun(mode) {
+    // No timer when there's no scan context or when a re-run is already
+    // running (avoid pile-ups during slow LLM responses).
+    if (!lastScanContext || autoRerunInFlight) return;
+    cancelAutoRerun({ keepBarHidden: false });
+    autoRerunMode = mode;
+    autoRerunDeadlineMs = Date.now() + AUTO_RERUN_MS;
+    autoRerunTimeoutId = setTimeout(executeAutoRerun, AUTO_RERUN_MS);
+    autoRerunCountdownId = setInterval(updateAutoRerunCountdown, 500);
+    showAutoRerunBar(mode);
+}
+
+function cancelAutoRerun({ keepBarHidden = true } = {}) {
+    if (autoRerunTimeoutId) clearTimeout(autoRerunTimeoutId);
+    if (autoRerunCountdownId) clearInterval(autoRerunCountdownId);
+    autoRerunTimeoutId = null;
+    autoRerunCountdownId = null;
+    autoRerunMode = null;
+    if (keepBarHidden) hideAutoRerunBar();
+}
+
+async function executeAutoRerun() {
+    if (autoRerunInFlight) return;
+    autoRerunInFlight = true;
+    cancelAutoRerun({ keepBarHidden: true });
+    const query = $("target-query").value.trim();
+    if (!query) {
+        hideAutoRerunBar();
+        autoRerunInFlight = false;
+        return;
+    }
+    setStatus(`Auto-re-running fan-out for "${query.slice(0, 60)}${query.length > 60 ? "…" : ""}"…`, true);
+    $("progress").classList.remove("hidden");
+    const fan = await runFanout(query);
+    appendFanoutHTML(fanoutResultHTML(fan));
+    hideAutoRerunBar();
+    setStatus("Fan-out refreshed.", false);
+    $("progress").classList.add("hidden");
+    autoRerunInFlight = false;
+    document.querySelector("[data-fanout-block]")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function fanoutResultHTML(fan) {
@@ -1240,6 +1343,7 @@ function appendFanoutHTML(html) {
 
 $("rerun-fanout").addEventListener("click", async (e) => {
     e.preventDefault();
+    cancelAutoRerun();
     const targetQuery = $("target-query").value.trim();
     if (!targetQuery || !lastScanContext) return;
     setStatus("Re-running fan-out with edited query…", true);
@@ -1251,7 +1355,28 @@ $("rerun-fanout").addEventListener("click", async (e) => {
     document.querySelector("[data-fanout-block]")?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
+$("auto-rerun-cancel").addEventListener("click", () => cancelAutoRerun());
+
+// Textbox interactions arbitrate the timer mode.
+//
+// First focus/click while idle-mode is ticking → user is about to
+// edit; cancel the idle countdown so we don't fire mid-edit. Subsequent
+// `input` events re-arm the timer in `edit` mode (debounce so we wait
+// for the user to pause).
+$("target-query").addEventListener("focus", () => {
+    if (autoRerunMode === "idle") cancelAutoRerun();
+});
+$("target-query").addEventListener("click", () => {
+    if (autoRerunMode === "idle") cancelAutoRerun();
+});
+$("target-query").addEventListener("input", () => {
+    // Re-arm in edit mode on every keystroke until they pause.
+    if (lastScanContext) scheduleAutoRerun("edit");
+});
+
 $("scan-btn").addEventListener("click", async () => {
+    cancelAutoRerun();  // any prior timer dies the moment a new scan starts
+
     const results = $("results");
     const progress = $("progress");
     const queryInput = $("target-query");
@@ -1306,6 +1431,7 @@ $("scan-btn").addEventListener("click", async () => {
     // skip fan-out entirely (no signal to seed it).
     const suggested = (aeoRes.data.suggested_target_query || "").trim();
     const effectiveQuery = explicitQuery || suggested;
+    const usedSuggestion = !explicitQuery && !!suggested;
 
     lastScanContext = {
         mode,
@@ -1322,18 +1448,21 @@ $("scan-btn").addEventListener("click", async () => {
     results.innerHTML = renderAEO(aeoRes.data);
 
     if (effectiveQuery) {
-        if (!explicitQuery && suggested) {
+        if (usedSuggestion) {
             queryInput.value = suggested;
             suggestedHint.classList.remove("hidden");
         }
-        // Fan-out placeholder while the LLM runs (4-12s)
+        // Surface explicitly that AEO is already done and we're now in
+        // the fan-out leg — keeps the UI honest while the LLM round-trip
+        // takes 4-12s.
+        markStep("fanout", "active");
         appendFanoutHTML(`
             <div class="gradient-border rounded-2xl p-7 animate-fadeup" data-fanout-skeleton role="status" aria-live="polite" aria-busy="true">
                 <div class="flex items-center gap-3 mb-5">
                     <span class="btn-spinner" style="width:18px;height:18px"></span>
                     <div>
-                        <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Generating fan-out</div>
-                        <div class="text-sm text-slate-300 mt-1">10–15 sub-queries for <span class="text-white font-semibold">"${escapeHTML(effectiveQuery.slice(0, 80))}${effectiveQuery.length > 80 ? "…" : ""}"</span></div>
+                        <div class="text-xs uppercase tracking-[0.2em] text-emerald-300">AEO checks complete — working on fan-out…</div>
+                        <div class="text-sm text-slate-300 mt-1">Generating 10–15 sub-queries for <span class="text-white font-semibold">"${escapeHTML(effectiveQuery.slice(0, 80))}${effectiveQuery.length > 80 ? "…" : ""}"</span></div>
                     </div>
                 </div>
                 <div class="space-y-2">
@@ -1347,10 +1476,17 @@ $("scan-btn").addEventListener("click", async () => {
                 </div>
             </div>
         `);
-        setStatus(`Generating query fan-out for "${effectiveQuery.slice(0, 80)}${effectiveQuery.length > 80 ? "…" : ""}"…`, true);
+        setStatus(`AEO checks complete — working on fan-out for "${effectiveQuery.slice(0, 60)}${effectiveQuery.length > 60 ? "…" : ""}"…`, true);
         const fan = await runFanout(effectiveQuery);
         appendFanoutHTML(fanoutResultHTML(fan));
         markStep("fanout", "done");
+
+        // Only arm the idle auto-rerun when we used the server's
+        // suggestion (user hasn't expressed intent yet). If they typed
+        // their own query, they already committed — no nudge needed.
+        if (usedSuggestion && fan && fan.ok) {
+            scheduleAutoRerun("idle");
+        }
     } else {
         appendFanoutHTML(`
             <div class="rounded-xl border border-white/5 bg-white/[.02] p-4 text-sm text-slate-400 animate-fadeup">
