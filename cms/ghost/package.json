@@ -1,0 +1,17 @@
+{
+  "name": "@aegis/ghost-aeo",
+  "version": "0.1.0",
+  "description": "Audit Ghost posts for AI search optimization (AEO) on publish / update via Ghost webhooks.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "audit-one": "node audit-one.js"
+  },
+  "keywords": ["ghost", "aeo", "seo", "webhook", "ai-search"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {}
+}

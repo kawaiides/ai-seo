@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_session
 from app.db.models import User
+from app.services.audit_log import ACTION_ACCOUNT_DELETE, record_audit_event
 from app.services.auth import get_current_user
 
 log = logging.getLogger(__name__)
@@ -58,6 +59,18 @@ async def delete_account(
 
     user_id = current_user.id
     log.info("account_delete: user=%s confirmed=%s", user_id, stored)
+    # Stamp the audit-log row BEFORE deleting the User, so the
+    # actor_user_id FK is preserved as SET NULL (deleting first would
+    # null it out anyway, but writing first makes the log query a clear
+    # "user X deleted themselves at T" event).
+    await record_audit_event(
+        db,
+        action=ACTION_ACCOUNT_DELETE,
+        actor_user_id=user_id,
+        subject_user_id=user_id,
+        meta={"email": stored},
+        request=request,
+    )
     await db.delete(current_user)
     await db.flush()
 

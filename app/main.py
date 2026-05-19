@@ -4,7 +4,7 @@ import logging
 import os
 import threading
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -33,6 +33,7 @@ from app.api import (  # noqa: E402
     fanout,
     geo,
     keys,
+    legal,
     linking,
     orgs,
     payment_webhooks,
@@ -40,12 +41,18 @@ from app.api import (  # noqa: E402
     reports,
     rewrite,
     site,
+    unsubscribe,
     v1,
     webhooks,
 )
+from app.observability import capture_exception, init_sentry  # noqa: E402
 from app.services.auth import get_current_user  # noqa: E402
 from app.services.content_parser import ContentParseError, URLFetchError  # noqa: E402
 from app.services.llm_client import LLMUnavailableError  # noqa: E402
+
+# Initialise Sentry as early as possible so any error during route
+# loading is captured. No-op when SENTRY_DSN isn't set.
+init_sentry()
 
 app = FastAPI(title="AEGIS — AI Engineer Assignment")
 
@@ -76,6 +83,24 @@ _HSTS_ENABLED = os.environ.get("APP_BASE_URL", "").lower().startswith("https://"
 )
 _HSTS_HEADER = "max-age=31536000; includeSubDomains"
 
+# Content-Security-Policy. The homepage pulls Tailwind from a CDN and inlines
+# a lot of CSS + JS (the scanner UI), so we run a permissive but explicit
+# policy rather than strict-dynamic. `unsafe-inline` on style + script is
+# required because the templates embed `<style>` blocks and `<script>` IIFEs
+# inline; tightening to a nonce-based policy is a tracked follow-up that
+# needs every template touched.
+_CSP_HEADER = (
+    "default-src 'self'; "
+    "img-src 'self' data: https:; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com; "
+    "font-src 'self' https://fonts.gstatic.com data:; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'"
+)
+
 
 @app.middleware("http")
 async def _security_headers(request: Request, call_next):
@@ -84,6 +109,9 @@ async def _security_headers(request: Request, call_next):
         response.headers.setdefault("Strict-Transport-Security", _HSTS_HEADER)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Content-Security-Policy", _CSP_HEADER)
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
     return response
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -137,6 +165,62 @@ async def rate_limit_middleware(request: Request, call_next):
     return await call_next(request)
 
 
+# ---- Abuse rate limit (signup + login) ----
+#
+# Distinct from the daily AEO quota: this caps account-creation churn from a
+# single IP. Bucket is per-hour because a real human signs up at most a few
+# times per day, while a credential-stuffer or signup-spammer hits hundreds.
+# In-memory like the AEO counter; same `AEGIS_DISABLE_RATE_LIMIT=1` test escape.
+
+ABUSE_LIMITED_PATHS = ("/api/auth/signup", "/api/auth/login")
+ABUSE_PER_HOUR_LIMIT = int(os.environ.get("AEGIS_AUTH_ABUSE_LIMIT", "10"))
+
+_abuse_counts: dict[tuple[str, str, datetime], int] = {}
+_abuse_lock = threading.Lock()
+
+
+def _hour_bucket(now: datetime | None = None) -> datetime:
+    """Floor the current UTC instant to the hour. Bucket key for the counter."""
+    t = now or datetime.now(tz=timezone.utc)
+    return t.replace(minute=0, second=0, microsecond=0)
+
+
+@app.middleware("http")
+async def auth_abuse_limit_middleware(request: Request, call_next):
+    if request.url.path not in ABUSE_LIMITED_PATHS:
+        return await call_next(request)
+    if os.environ.get("AEGIS_DISABLE_RATE_LIMIT") == "1":
+        return await call_next(request)
+
+    bucket = _hour_bucket()
+    ip = _client_ip(request)
+    key = (request.url.path, ip, bucket)
+
+    with _abuse_lock:
+        used = _abuse_counts.get(key, 0)
+        if used >= ABUSE_PER_HOUR_LIMIT:
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "auth_abuse_limit",
+                    "message": (
+                        f"Too many {request.url.path.rsplit('/', 1)[-1]} attempts "
+                        f"from this IP this hour. Try again later."
+                    ),
+                    "detail": f"used={used} limit={ABUSE_PER_HOUR_LIMIT}",
+                },
+            )
+        _abuse_counts[key] = used + 1
+
+    return await call_next(request)
+
+
+def reset_abuse_counter() -> None:
+    """Test helper — wipe the abuse counter between tests."""
+    with _abuse_lock:
+        _abuse_counts.clear()
+
+
 app.include_router(aeo.router, prefix="/api/aeo", tags=["aeo"])
 app.include_router(fanout.router, prefix="/api/fanout", tags=["fanout"])
 app.include_router(reports.router, tags=["reports"])
@@ -157,6 +241,8 @@ app.include_router(payment_webhooks.router)
 app.include_router(region.router)
 app.include_router(blog.router)
 app.include_router(admin.router)
+app.include_router(legal.router, tags=["legal"])
+app.include_router(unsubscribe.router, tags=["unsubscribe"])
 
 
 # ---- Graceful error rendering ----
@@ -368,6 +454,10 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> Resp
     _log.exception(
         "unhandled_exception path=%s request_id=%s", request.url.path, request_id,
     )
+    # Ship the raw exception to Sentry if configured. The request_id is
+    # attached as a tag so an operator looking at a 500 response can grep
+    # the Sentry issue list directly.
+    capture_exception(exc, request_id=request_id, path=request.url.path)
     if _wants_json(request):
         return JSONResponse(
             status_code=500,
@@ -435,6 +525,68 @@ async def index(
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/ready")
+async def ready() -> Response:
+    """Deep health: returns 200 only if every dependency responds.
+
+    Probes:
+      * Postgres — `SELECT 1` via the async engine
+      * OpenAI   — only when `OPENAI_API_KEY` is set; uses the cheapest
+                   API call (`models.list`) with a 3s timeout
+
+    A failing probe degrades the response to 503 + a per-probe map so a
+    load balancer / k8s readiness probe can decide whether to drain the
+    instance. `/api/health` stays as the cheap liveness probe (no
+    downstream calls) for tight uptime monitors.
+    """
+    import asyncio
+    from datetime import datetime, timezone
+
+    started = datetime.now(tz=timezone.utc)
+    probes: dict[str, dict[str, str]] = {}
+
+    # ---- Postgres ----
+    try:
+        from sqlalchemy import text
+        from app.db.base import get_sessionmaker
+
+        sm = get_sessionmaker()
+        async with sm() as session:
+            await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=3.0)
+        probes["postgres"] = {"status": "ok"}
+    except asyncio.TimeoutError:
+        probes["postgres"] = {"status": "timeout", "detail": "select 1 > 3s"}
+    except Exception as e:  # noqa: BLE001
+        probes["postgres"] = {"status": "fail", "detail": f"{type(e).__name__}: {e}"}
+
+    # ---- OpenAI ---- (skipped when no key — we don't want unauthenticated
+    # probes to fail just because the operator hasn't wired LLM yet)
+    if os.environ.get("OPENAI_API_KEY"):
+        try:
+            from openai import AsyncOpenAI
+
+            client = AsyncOpenAI(timeout=3.0)
+            await asyncio.wait_for(client.models.list(), timeout=3.0)
+            probes["openai"] = {"status": "ok"}
+        except asyncio.TimeoutError:
+            probes["openai"] = {"status": "timeout", "detail": "models.list > 3s"}
+        except Exception as e:  # noqa: BLE001
+            probes["openai"] = {"status": "fail", "detail": f"{type(e).__name__}: {e}"}
+    else:
+        probes["openai"] = {"status": "skipped", "detail": "OPENAI_API_KEY unset"}
+
+    elapsed_ms = int((datetime.now(tz=timezone.utc) - started).total_seconds() * 1000)
+    overall_ok = all(p["status"] in ("ok", "skipped") for p in probes.values())
+    return JSONResponse(
+        status_code=200 if overall_ok else 503,
+        content={
+            "status": "ready" if overall_ok else "degraded",
+            "elapsed_ms": elapsed_ms,
+            "probes": probes,
+        },
+    )
 
 
 @app.on_event("startup")

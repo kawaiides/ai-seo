@@ -1,0 +1,46 @@
+{% extends "legal/_shell.html" %}
+{% set doc_title = "Terms of Service" %}
+{% set effective_date = "2026-05-17" %}
+{% block title %}Terms of Service · AEGIS Autopilot{% endblock %}
+{% block description %}Terms governing use of the AEGIS Autopilot platform.{% endblock %}
+
+{% block legal_body %}
+<p>These terms ("Terms") govern your access to and use of the AEGIS Autopilot service ("Service") operated by AEGIS Autopilot ("we", "us"). By creating an account, calling the API, or running an audit, you agree to these Terms.</p>
+
+<h2>1. Account</h2>
+<p>You must provide a valid email address. You are responsible for the security of any session cookies issued to you and for any activity performed under your account, including audits, fan-out queries, and webhook deliveries. Anonymous (passwordless) sessions are bound to a session-id cookie; clearing cookies ends the session.</p>
+
+<h2>2. Acceptable use</h2>
+<p>You may not:</p>
+<ul>
+  <li>scan content you do not own and do not have permission to analyze;</li>
+  <li>resell, white-label, or re-host the Service without a written commercial agreement;</li>
+  <li>circumvent the free-tier daily limit by rotating IPs, cookies, or session identifiers;</li>
+  <li>use the API to scrape PII, harvest contact information, or build a competing dataset;</li>
+  <li>send outbound mail on behalf of another organization without their authorization.</li>
+</ul>
+
+<h2>3. Service availability</h2>
+<p>The Service is provided "as is" without warranty. We may modify, suspend, or discontinue any feature at any time. Free-tier daily limits, BYOK validation cache TTLs, and webhook retry policies may change without notice.</p>
+
+<h2>4. Billing</h2>
+<p>Paid plans are billed monthly or annually via Stripe (USD) or Razorpay UPI Autopay (INR) based on the billing country inferred from your signup IP. Refunds follow our <a href="/refund">Refund Policy</a>. Cancelling stops future renewals; you keep Pro features through the end of the current period.</p>
+
+<h2>5. Data ownership</h2>
+<p>You retain ownership of all content you submit for analysis. We retain ownership of the analysis output (scores, fan-out sub-queries, schema suggestions) but grant you a perpetual, royalty-free license to use it for any purpose. We may use aggregate, non-identifying analytics (e.g. "avg AEO score for the en-IN locale") for product improvement.</p>
+
+<h2>6. Bring-Your-Own-Key (BYOK)</h2>
+<p>When you supply an OpenAI or Gemini key via the BYOK header, your usage is billed directly to your provider account. We do not log, persist, or share your key beyond the SHA-256 hash used to cache validation. Revoking a key (deleting it from your provider dashboard) immediately invalidates our cached validation row on its next refresh.</p>
+
+<h2>7. Termination</h2>
+<p>You can delete your account at <a href="/account#danger"><code>/account#danger</code></a>. We may suspend or terminate access for breach of these Terms, abuse, or non-payment. Upon termination, we permanently delete your User record and cascade-delete your Sites, Audits, API keys, and active subscriptions within 30 days, subject to the data-export window in our <a href="/privacy">Privacy Policy</a>.</p>
+
+<h2>8. Liability</h2>
+<p>To the maximum extent permitted by law, our aggregate liability for any claim arising out of the Service is capped at the greater of (a) the fees you paid us in the trailing 12 months, or (b) USD $100. We are not liable for indirect, incidental, or consequential damages.</p>
+
+<h2>9. Governing law</h2>
+<p>These Terms are governed by the laws of the jurisdiction where AEGIS Autopilot is incorporated. Disputes shall be resolved by binding arbitration in that jurisdiction, except either party may seek injunctive relief in any court of competent jurisdiction for IP infringement.</p>
+
+<h2>10. Changes</h2>
+<p>We may update these Terms. Material changes will be announced via email to your account address at least 7 days before they take effect. Continued use of the Service after a change constitutes acceptance.</p>
+{% endblock %}

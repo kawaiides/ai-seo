@@ -1,0 +1,74 @@
+{
+  "name": "aegis-aeo",
+  "displayName": "AEGIS — AEO Auditor",
+  "description": "Audit the current Markdown / HTML file for AI search optimization (AEO) without leaving VS Code.",
+  "version": "0.1.0",
+  "publisher": "aegis",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other", "Linters"],
+  "keywords": ["aeo", "seo", "llm", "ai search", "perplexity", "openai"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aegis.auditActiveFile",
+        "title": "AEGIS: Audit active file",
+        "category": "AEGIS"
+      },
+      {
+        "command": "aegis.auditSelection",
+        "title": "AEGIS: Audit selection",
+        "category": "AEGIS"
+      },
+      {
+        "command": "aegis.configure",
+        "title": "AEGIS: Configure API key",
+        "category": "AEGIS"
+      }
+    ],
+    "configuration": {
+      "title": "AEGIS",
+      "properties": {
+        "aegis.apiBase": {
+          "type": "string",
+          "default": "https://aegis-autopilot.com",
+          "description": "AEGIS API base URL."
+        },
+        "aegis.threshold": {
+          "type": "number",
+          "default": 65,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Below this AEO score the status-bar item turns red."
+        }
+      }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorHasSelection && (editorLangId == markdown || editorLangId == html || editorLangId == mdx)",
+          "command": "aegis.auditSelection",
+          "group": "AEGIS"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aegis-autopilot/aegis"
+  },
+  "license": "MIT"
+}

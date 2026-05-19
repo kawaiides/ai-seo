@@ -36,6 +36,7 @@ from app.autopilot.report_builder import RenderContext, build_context
 from app.db.models import Audit, Contact, FunnelStage, Outreach, Prospect
 from app.integrations.resend import ResendMailer, SendResult
 from app.services.funnel import record as record_funnel
+from app.services.unsubscribe import make_token as make_unsubscribe_token
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,40 @@ def _reply_to() -> str | None:
     return os.environ.get("MAIL_REPLY_TO") or None
 
 
+def _unsubscribe_base_url() -> str:
+    """Public origin for List-Unsubscribe links. Defaults to the demo
+    box's hostname so dev runs render real-looking links; in prod set
+    `APP_BASE_URL=https://your.domain` for proper RFC 8058 compliance."""
+    return (os.environ.get("APP_BASE_URL") or "http://52.64.13.171").rstrip("/")
+
+
+def _unsubscribe_mailto() -> str | None:
+    return os.environ.get("UNSUBSCRIBE_MAILTO") or None
+
+
+def _build_unsubscribe_headers(contact_id: int, audit_id: int) -> dict[str, str]:
+    """Build the two RFC 8058 / CAN-SPAM headers.
+
+    Most modern inboxes (Gmail, Yahoo, Outlook) honour these and surface
+    a one-click "Unsubscribe" button next to the From line. The mailto
+    variant is the legal fallback for clients that don't speak HTTPS
+    one-click.
+    """
+    token = make_unsubscribe_token(contact_id, audit_id)
+    base = _unsubscribe_base_url()
+    url = f"{base}/unsubscribe?token={token}"
+    mailto = _unsubscribe_mailto()
+    variants = [f"<{url}>"]
+    if mailto:
+        variants.append(
+            f"<mailto:{mailto}?subject=Unsubscribe&body=token={token}>"
+        )
+    return {
+        "List-Unsubscribe": ", ".join(variants),
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    }
+
+
 # ---- transport selection ----
 
 
@@ -85,6 +120,7 @@ class MailTransport(Protocol):
         text: str,
         from_addr: str,
         reply_to: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> SendResult: ...
 
 
@@ -94,6 +130,7 @@ def _build_message(
     rendered: "RenderedEmail",
     *,
     reply_to: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> EmailMessage:
     """Compose a MIME message with text + HTML parts.
 
@@ -107,6 +144,9 @@ def _build_message(
     msg["Subject"] = rendered.subject
     if reply_to:
         msg["Reply-To"] = reply_to
+    if extra_headers:
+        for k, v in extra_headers.items():
+            msg[k] = v
     msg.set_content(rendered.text)
     msg.add_alternative(rendered.html, subtype="html")
     return msg
@@ -135,9 +175,13 @@ class SMTPTransport:
         text: str,
         from_addr: str,
         reply_to: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> SendResult:
         rendered = RenderedEmail(subject=subject, text=text, html=html)
-        msg = _build_message(from_addr, to, rendered, reply_to=reply_to)
+        msg = _build_message(
+            from_addr, to, rendered,
+            reply_to=reply_to, extra_headers=extra_headers,
+        )
 
         kwargs: dict[str, Any] = {
             "hostname": self._settings["host"],
@@ -180,6 +224,7 @@ class DryRunTransport:
         text: str,
         from_addr: str,
         reply_to: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> SendResult:
         log.warning(
             "mail[no_transport]: not sent to %s (subject=%r). Set RESEND_API_KEY or SMTP_HOST.",
@@ -259,8 +304,12 @@ async def _select_candidates(
     variant: str,
     limit: int,
 ) -> list[tuple[Contact, Audit, Prospect]]:
-    """Candidate join. Excludes contact/audit pairs that already have an
-    Outreach row for this variant — that's our idempotency check."""
+    """Candidate join. Excludes:
+       * contact/audit pairs that already have an Outreach row for this
+         variant — that's our idempotency check.
+       * contacts whose `unsubscribed_at` is set — CAN-SPAM / RFC 8058
+         suppression list. Once a contact opts out, every future send
+         (cold + follow-up sequence + bulk re-run) skips them."""
     stmt = (
         select(Contact, Audit, Prospect)
         .join(Prospect, Prospect.id == Contact.prospect_id)
@@ -273,6 +322,7 @@ async def _select_candidates(
         )
         .where(Audit.aeo_score < cutoff)
         .where(Outreach.id.is_(None))
+        .where(Contact.unsubscribed_at.is_(None))
         .order_by(Audit.created_at.desc())
         .limit(limit)
     )
@@ -359,6 +409,7 @@ async def send_pending(
             stats.skipped += 1
             continue
 
+        unsub_headers = _build_unsubscribe_headers(contact.id, audit.id)
         if dry_run:
             log.info("mail[dry_run]: would send to %s subj=%r via %s",
                      contact.email, rendered.subject, active_transport.name)
@@ -372,6 +423,7 @@ async def send_pending(
                     text=rendered.text,
                     from_addr=from_addr,
                     reply_to=reply_to,
+                    extra_headers=unsub_headers,
                 )
             except Exception as e:  # noqa: BLE001 — last-resort safety
                 err = f"{type(e).__name__}: {e}"

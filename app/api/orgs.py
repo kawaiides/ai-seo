@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,12 @@ from app.models.schemas import (
     OrgInviteRequest,
     OrgMemberRecord,
     OrgRecord,
+)
+from app.services.audit_log import (
+    ACTION_ORG_CREATE,
+    ACTION_ORG_MEMBER_INVITE,
+    ACTION_ORG_MEMBER_REMOVE,
+    record_audit_event,
 )
 from app.services.auth import get_current_user, get_or_create_user_by_email
 from app.services.orgs import (
@@ -32,6 +38,7 @@ router = APIRouter()
 @router.post("", response_model=OrgRecord, status_code=201)
 async def create(
     req: OrgCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ) -> OrgRecord:
@@ -39,6 +46,14 @@ async def create(
         raise HTTPException(status_code=401, detail={"error": "auth_required"})
     org = await create_org(
         session, owner=user, name=req.name, slug=req.slug, logo_url=req.logo_url
+    )
+    await record_audit_event(
+        session,
+        action=ACTION_ORG_CREATE,
+        actor_user_id=user.id,
+        subject_org_id=org.id,
+        meta={"name": org.name, "slug": org.slug},
+        request=request,
     )
     return _serialise_org(org)
 
@@ -78,6 +93,7 @@ async def get_org(
 async def invite(
     org_id: UUID,
     req: OrgInviteRequest,
+    request: Request,
     ctx: OrgContext = Depends(require_role(OrgRole.owner)),
     session: AsyncSession = Depends(get_session),
 ) -> OrgMemberRecord:
@@ -101,6 +117,15 @@ async def invite(
     member = await invite_member(
         session, org_id=org_id, user=target, role=OrgRole(req.role)
     )
+    await record_audit_event(
+        session,
+        action=ACTION_ORG_MEMBER_INVITE,
+        actor_user_id=ctx.user.id,
+        subject_user_id=target.id,
+        subject_org_id=org_id,
+        meta={"role": req.role, "email": target.email},
+        request=request,
+    )
     return _serialise_member(member)
 
 
@@ -118,10 +143,19 @@ async def members(
 async def remove(
     org_id: UUID,
     user_id: UUID,
+    request: Request,
     ctx: OrgContext = Depends(require_role(OrgRole.owner)),
     session: AsyncSession = Depends(get_session),
 ) -> None:
     await remove_member(session, org_id=org_id, target_user_id=user_id)
+    await record_audit_event(
+        session,
+        action=ACTION_ORG_MEMBER_REMOVE,
+        actor_user_id=ctx.user.id,
+        subject_user_id=user_id,
+        subject_org_id=org_id,
+        request=request,
+    )
 
 
 def _serialise_org(org: Org) -> OrgRecord:

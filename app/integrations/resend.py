@@ -76,6 +76,7 @@ class ResendMailer:
         text: str,
         from_addr: str,
         reply_to: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> SendResult:
         if not self._api_key:
             return SendResult(delivered=False, detail="resend api key not configured")
@@ -88,6 +89,11 @@ class ResendMailer:
         }
         if reply_to:
             payload["reply_to"] = reply_to
+        if extra_headers:
+            # Resend's API accepts arbitrary RFC 5322 headers via the
+            # `headers` object — used here to carry List-Unsubscribe +
+            # List-Unsubscribe-Post for CAN-SPAM / RFC 8058 compliance.
+            payload["headers"] = dict(extra_headers)
         client = self._client or httpx.AsyncClient(timeout=self._timeout)
         owns_client = self._client is None
         try:

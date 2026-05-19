@@ -1,0 +1,14 @@
+{
+  "name": "AEGIS AEO",
+  "description": "Audit the current Webflow page for AI search optimization.",
+  "apiVersion": "2",
+  "size": "comfortable",
+  "publicDir": "public",
+  "featureFlags": {
+    "siteDataAccess": true,
+    "pageDataAccess": true
+  },
+  "permissions": {
+    "scopes": ["pages:read", "sites:read"]
+  }
+}

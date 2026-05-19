@@ -12,7 +12,7 @@ resource "aws_security_group" "web" {
   }
 
   ingress {
-    description = "HTTP (Caddy serves Let's Encrypt + redirects to HTTPS)"
+    description = "HTTP (Caddy ACME + redirect to HTTPS)"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"

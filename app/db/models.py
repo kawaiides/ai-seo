@@ -174,6 +174,10 @@ class Contact(Base):
     discovered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    # Set when the contact clicks the List-Unsubscribe link (RFC 8058 / CAN-SPAM).
+    # Once non-null, `outbox_mailer._select_candidates` filters this row out
+    # of every future send — including re-runs and follow-up sequence variants.
+    unsubscribed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     prospect: Mapped[Prospect] = relationship(back_populates="contacts")
     outreach_items: Mapped[list["Outreach"]] = relationship(back_populates="contact")
@@ -670,3 +674,49 @@ class SeedQueryUsage(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     use_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class AccountAuditLog(Base):
+    """Append-only security audit trail for account-level mutations.
+
+    Distinct from `FunnelEvent` (product analytics) and `WebhookEvent`
+    (delivery idempotency). This table answers SOC 2 / GDPR "show me
+    every change someone made to their own account" queries.
+
+    `actor_user_id` — the User who performed the action; nullable
+    because some events (e.g. anonymous account self-delete) have no
+    surviving actor row after the cascade.
+
+    `subject_user_id` / `subject_org_id` — the row the action targeted.
+    Either may be null depending on the event type.
+
+    `action` — short stable identifier (e.g. `account.delete`,
+    `api_key.create`, `api_key.revoke`, `org.member.invite`,
+    `org.member.remove`, `subscription.cancel`).
+
+    `meta` — JSONB sidebar with the minimum context to reconstruct the
+    event (e.g. `{"api_key_prefix": "ak_abc", "scopes": [...]}`). Never
+    store secret material here.
+    """
+
+    __tablename__ = "account_audit_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("user_.id", ondelete="SET NULL"), index=True
+    )
+    subject_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("user_.id", ondelete="SET NULL"), index=True
+    )
+    subject_org_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("org.id", ondelete="SET NULL"), index=True
+    )
+    action: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    request_ip: Mapped[str | None] = mapped_column(String(64))
+    user_agent: Mapped[str | None] = mapped_column(String(512))
+    meta: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )

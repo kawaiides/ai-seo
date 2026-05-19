@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AEGIS AEO</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      padding: 14px;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+      background: #0a0a16;
+      color: #e2e8f0;
+    }
+    h1 { font-size: 13px; margin: 0 0 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8; }
+    .page { font-size: 12px; color: #cbd5e1; margin-bottom: 12px; word-break: break-all; }
+    button {
+      width: 100%;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 0;
+      background: linear-gradient(90deg, #8b5cf6, #ec4899);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.55; cursor: progress; }
+    .panel {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .score { font-size: 40px; font-weight: 800; line-height: 1; }
+    .band { font-size: 12px; color: #cbd5e1; }
+    ul.checks { list-style: none; padding: 0; margin: 8px 0 0; font-size: 12px; }
+    ul.checks li { padding: 5px 0; border-top: 1px solid rgba(255,255,255,0.05); }
+    .pass { color: #4ade80; }
+    .fail { color: #f87171; }
+    .err { color: #fca5a5; font-size: 12px; }
+    label { display: block; font-size: 12px; color: #94a3b8; margin-top: 8px; }
+    input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: #050510;
+      color: #e2e8f0;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <h1>AEGIS · AEO Audit</h1>
+  <div class="page" id="pageLabel">loading…</div>
+
+  <details>
+    <summary style="cursor:pointer; font-size:11px; color:#64748b; margin-bottom:8px;">Settings</summary>
+    <label>API base
+      <input type="url" id="apiBase" placeholder="https://aegis-autopilot.com" />
+    </label>
+    <label>API key
+      <input type="password" id="apiKey" placeholder="aegis_ak_…" autocomplete="off" />
+    </label>
+  </details>
+
+  <button id="run">Audit this page</button>
+  <div class="err" id="err" hidden></div>
+
+  <div class="panel" id="panel" hidden>
+    <div>
+      <div class="score" id="score">—</div>
+      <div class="band" id="band">—</div>
+    </div>
+    <ul class="checks" id="checks"></ul>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

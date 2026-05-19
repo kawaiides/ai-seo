@@ -31,11 +31,18 @@ resource "aws_iam_role_policy_attachment" "ec2_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# Intentionally NOT attaching the managed `SecretsManagerReadWrite`
+# policy: it grants read+write on every secret in the account, which is
+# vastly more than the EC2 boot script needs. The inline policy below
+# limits access to `GetSecretValue` + `DescribeSecret` on the single
+# `app_env` secret ARN. If you ever see SecretsManagerReadWrite suggested
+# elsewhere, prefer this scoped form.
+
 data "aws_iam_policy_document" "ec2_inline" {
   statement {
-    sid     = "ReadAppSecrets"
-    effect  = "Allow"
-    actions = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
+    sid       = "ReadAppSecrets"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret"]
     resources = [aws_secretsmanager_secret.app_env.arn]
   }
 

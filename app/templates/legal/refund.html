@@ -1,0 +1,34 @@
+{% extends "legal/_shell.html" %}
+{% set doc_title = "Refund Policy" %}
+{% set effective_date = "2026-05-17" %}
+{% block title %}Refund Policy · AEGIS Autopilot{% endblock %}
+{% block description %}Refund terms for AEGIS Autopilot subscriptions.{% endblock %}
+
+{% block legal_body %}
+<p>This Refund Policy explains when we issue refunds on AEGIS Autopilot subscriptions.</p>
+
+<h2>1. Monthly plans</h2>
+<p>Monthly subscriptions are billed in advance and are non-refundable. Cancelling stops the next renewal; you keep Pro features through the end of the paid period. Cancel any time at <a href="/account#billing"><code>/account#billing</code></a>.</p>
+
+<h2>2. Annual plans</h2>
+<p>Annual subscriptions are refundable on a pro-rated basis if cancelled within 30 days of the most recent renewal. We refund the unused months minus a USD $50 processing fee. After 30 days, refunds are issued only at our discretion.</p>
+
+<h2>3. Razorpay UPI Autopay (INR)</h2>
+<p>Per RBI e-mandate rules, monthly UPI Autopay charges are refunded only when:</p>
+<ul>
+  <li>the charge was made in error (duplicate billing, our outage during the renewal window), or</li>
+  <li>you submitted a written cancellation through <a href="/account#billing"><code>/account#billing</code></a> at least 24 hours before the next pre-debit notification.</li>
+</ul>
+
+<h2>4. BYOK + free tier</h2>
+<p>BYOK header usage is not billed by us — your provider (OpenAI / Gemini) bills directly. Free-tier scans are not billable; we cannot refund quota.</p>
+
+<h2>5. How to request a refund</h2>
+<p>Email <a href="mailto:billing@aegis.example">billing@aegis.example</a> from the address on your account. Include the subscription external id (visible at <a href="/account#billing"><code>/account#billing</code></a>) and the reason. We aim to resolve refund requests within 7 business days.</p>
+
+<h2>6. Disputes</h2>
+<p>If you dispute a charge with your card issuer or UPI app instead of contacting us first, we may suspend your account for the duration of the dispute. Chargebacks issued without prior contact are treated as terms violations and may result in permanent account closure.</p>
+
+<h2>7. Changes</h2>
+<p>This policy applies to charges incurred on or after the effective date above. Earlier charges follow the policy in effect when they occurred.</p>
+{% endblock %}

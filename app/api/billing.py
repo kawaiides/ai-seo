@@ -285,4 +285,20 @@ async def cancel_subscription(
     sub.status = SubscriptionStatus.canceled
     current_user.plan = UserPlan.free
     await db.flush()
+    from app.services.audit_log import (
+        ACTION_SUBSCRIPTION_CANCEL,
+        record_audit_event,
+    )
+    await record_audit_event(
+        db,
+        action=ACTION_SUBSCRIPTION_CANCEL,
+        actor_user_id=current_user.id,
+        subject_user_id=current_user.id,
+        meta={
+            "subscription_id": str(sub.id),
+            "external_id": sub.external_id,
+            "processor": sub.processor.value,
+        },
+        request=request,
+    )
     return RedirectResponse(url="/account", status_code=303)

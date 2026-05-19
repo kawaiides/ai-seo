@@ -1,0 +1,56 @@
+{% extends "_base.html" %}
+{% block title %}Unsubscribe · AEGIS Autopilot{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<section class="max-w-xl mx-auto px-6 py-24 text-center fadeup">
+    <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl glass mb-6 text-2xl">
+        {% if status == "done" %}✓
+        {% elif status == "already" %}⊘
+        {% elif status == "confirm" %}✉
+        {% else %}!
+        {% endif %}
+    </div>
+
+    {% if status == "confirm" %}
+        <h1 class="text-2xl font-bold tracking-tight text-white mb-2">Unsubscribe from AEGIS outreach?</h1>
+        <p class="text-sm text-slate-400 leading-relaxed mb-8">
+            One click and we'll never email you again from this list. You can re-subscribe by replying to any prior message.
+        </p>
+        <form action="/unsubscribe" method="post" class="space-y-3 max-w-xs mx-auto">
+            <input type="hidden" name="token" value="{{ token }}" />
+            <input type="hidden" name="List-Unsubscribe" value="One-Click" />
+            <button type="submit" class="btn-primary w-full px-5 py-3 rounded-xl text-sm font-semibold">
+                Yes, unsubscribe me
+            </button>
+        </form>
+    {% elif status == "done" %}
+        <h1 class="text-2xl font-bold tracking-tight text-white mb-2">You're unsubscribed</h1>
+        <p class="text-sm text-slate-400 leading-relaxed mb-8">
+            We've removed contact #{{ contact_id }} from the AEGIS outreach list. No more emails will be sent.
+        </p>
+    {% elif status == "already" %}
+        <h1 class="text-2xl font-bold tracking-tight text-white mb-2">Already unsubscribed</h1>
+        <p class="text-sm text-slate-400 leading-relaxed mb-8">
+            Contact #{{ contact_id }} was already on the suppression list. Nothing to do.
+        </p>
+    {% elif status == "invalid_token" %}
+        <h1 class="text-2xl font-bold tracking-tight text-white mb-2">This link is invalid</h1>
+        <p class="text-sm text-slate-400 leading-relaxed mb-8">
+            The unsubscribe token couldn't be verified. It may have been tampered with, or the signing key was rotated. Email
+            <a href="mailto:unsubscribe@aegis.example" class="text-violet-300 hover:text-white">unsubscribe@aegis.example</a>
+            and we'll remove you manually.
+        </p>
+    {% else %}
+        <h1 class="text-2xl font-bold tracking-tight text-white mb-2">No token supplied</h1>
+        <p class="text-sm text-slate-400 leading-relaxed mb-8">
+            Open this page from the unsubscribe link in your AEGIS email. If you don't have one, email
+            <a href="mailto:unsubscribe@aegis.example" class="text-violet-300 hover:text-white">unsubscribe@aegis.example</a>.
+        </p>
+    {% endif %}
+
+    <a href="/" class="btn-ghost px-5 py-2.5 rounded-lg text-sm font-semibold no-underline">
+        Back to home
+    </a>
+</section>
+{% endblock %}

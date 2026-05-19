@@ -1,0 +1,61 @@
+name: "AEGIS AEO Gate"
+description: "Fail the build when any audited URL or local HTML file scores below an AEO threshold."
+author: "AEGIS"
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  targets:
+    description: |
+      Space-separated URLs (default) or local file paths (with `paste: 'true'`)
+      to audit. Glob patterns are NOT expanded — pass an explicit list.
+    required: true
+  threshold:
+    description: "Minimum acceptable aeo_score (0-100)."
+    required: false
+    default: "65"
+  api-url:
+    description: "AEGIS API base URL."
+    required: false
+    default: "https://aegis-autopilot.com"
+  api-key:
+    description: "AEGIS Bearer API key with `audit:write` scope."
+    required: true
+  paste:
+    description: "Set 'true' to treat targets as local HTML/MD file paths."
+    required: false
+    default: "false"
+  timeout:
+    description: "HTTP timeout in seconds per audit."
+    required: false
+    default: "30"
+  fail-on-error:
+    description: "If 'true', any network/auth error fails the build."
+    required: false
+    default: "true"
+
+outputs:
+  min-score:
+    description: "Lowest score across all targets."
+  failed-count:
+    description: "Number of targets below the threshold."
+  report:
+    description: "JSON summary of all audits (stdout from aegis-ci --json)."
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  args:
+    - "--threshold"
+    - "${{ inputs.threshold }}"
+    - "--api-url"
+    - "${{ inputs.api-url }}"
+    - "--api-key"
+    - "${{ inputs.api-key }}"
+    - "--timeout"
+    - "${{ inputs.timeout }}"
+  env:
+    AEGIS_PASTE: "${{ inputs.paste }}"
+    AEGIS_FAIL_ON_ERROR: "${{ inputs.fail-on-error }}"
+    AEGIS_TARGETS: "${{ inputs.targets }}"

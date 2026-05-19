@@ -1,0 +1,62 @@
+{% extends "legal/_shell.html" %}
+{% set doc_title = "Privacy Policy" %}
+{% set effective_date = "2026-05-17" %}
+{% block title %}Privacy Policy · AEGIS Autopilot{% endblock %}
+{% block description %}How AEGIS Autopilot collects, stores, and uses personal information.{% endblock %}
+
+{% block legal_body %}
+<p>This Privacy Policy explains how AEGIS Autopilot ("we") handles personal information when you use the Service. It is intended to align with GDPR (EU), CCPA (California), and India's Digital Personal Data Protection Act, 2023.</p>
+
+<h2>1. What we collect</h2>
+<ul>
+  <li><strong>Account identifiers:</strong> email address, signup IP, derived billing country, and a session-id cookie.</li>
+  <li><strong>Content you submit:</strong> URLs and raw text you submit for analysis. Page text fetched server-side is parsed and discarded after the audit; the resulting score, failed-check breakdown, and fan-out sub-queries are persisted to the <code>audit</code> table.</li>
+  <li><strong>Usage telemetry:</strong> per-request rate-limit counters, API-key prefixes, webhook delivery outcomes, and funnel events. We do not run third-party analytics on logged-in pages.</li>
+  <li><strong>Payment metadata:</strong> Subscription processor (Stripe or Razorpay), external subscription id, period-end, status. Card numbers are stored only by the processor — we never see them.</li>
+  <li><strong>BYOK keys:</strong> stored as a SHA-256 hash plus a 6-character plaintext prefix for fingerprinting. The raw key is held in memory for the duration of a single request and not persisted.</li>
+</ul>
+
+<h2>2. Why we collect it</h2>
+<ul>
+  <li>To run the audits and fan-out generation you requested.</li>
+  <li>To enforce the free-tier daily quota and bill paid plans.</li>
+  <li>To deliver webhooks to your configured URLs and re-audit alerts to Slack / Linear.</li>
+  <li>To improve the Service via aggregate, non-identifying analytics.</li>
+  <li>To respond to abuse reports and law-enforcement requests where legally required.</li>
+</ul>
+
+<h2>3. Who we share it with</h2>
+<p>We share data with subprocessors strictly to operate the Service:</p>
+<ul>
+  <li><strong>OpenAI</strong> — for LLM-driven fan-out + rewrite endpoints. Page text is sent only when you trigger one of these endpoints.</li>
+  <li><strong>SerpAPI</strong> — to discover prospect URLs in the autopilot pipeline (your URLs aren't sent here).</li>
+  <li><strong>Hunter.io</strong> — domain-search for contact discovery in the autopilot pipeline.</li>
+  <li><strong>Resend</strong> — for outbound transactional + cold-outreach email.</li>
+  <li><strong>Stripe / Razorpay</strong> — for payment processing.</li>
+  <li><strong>AWS</strong> — for hosting (EC2 + RDS Postgres + S3 backups).</li>
+</ul>
+
+<h2>4. Where we store it</h2>
+<p>Primary database is AWS RDS Postgres in <code>ap-southeast-2</code> (Sydney). Backups roll to S3 in the same region with a 30-day local + 365-day Glacier IR retention. Audit-output JSONB is column-encrypted at rest by RDS; backups inherit the encryption.</p>
+
+<h2>5. Your rights</h2>
+<ul>
+  <li><strong>Access:</strong> request a copy of all data tied to your account by emailing <a href="mailto:privacy@aegis.example">privacy@aegis.example</a>.</li>
+  <li><strong>Erasure:</strong> delete your account at <a href="/account#danger"><code>/account#danger</code></a>. This cascades to every row keyed off your User id; aggregate counters are not reversed.</li>
+  <li><strong>Portability:</strong> we will export your audits + sites + outreach history as JSON within 30 days of a written request.</li>
+  <li><strong>Correction:</strong> change your email or other profile fields from the account page; structural fields (User id, signup IP) cannot be changed but can be deleted.</li>
+  <li><strong>Opt-out of sale:</strong> we do not sell personal information.</li>
+</ul>
+
+<h2>6. Cookies</h2>
+<p>We use one essential cookie (<code>aegis_session</code>) to keep you logged in. No third-party analytics or advertising cookies are set on the marketing or product surfaces.</p>
+
+<h2>7. Children</h2>
+<p>The Service is not intended for users under 16. We do not knowingly collect data from children.</p>
+
+<h2>8. Changes</h2>
+<p>We may update this Policy. Material changes will be emailed to your account address at least 7 days in advance.</p>
+
+<h2>9. Contact</h2>
+<p>Email <a href="mailto:privacy@aegis.example">privacy@aegis.example</a> for all data-protection requests. We aim to acknowledge within 5 business days.</p>
+{% endblock %}
